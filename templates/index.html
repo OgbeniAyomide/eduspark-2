@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>StudyMate AI Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#3713ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#131022",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #f6f6f8;
+        }
+    </style>
+</head>
+<body class="bg-background-light font-display text-gray-800">
+<div class="relative min-h-screen w-full">
+<header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-black/10 bg-background-light/50 px-4 py-3 backdrop-blur-lg sm:px-6 md:px-10">
+<div class="flex items-center gap-4">
+<div class="size-6 text-primary">
+<svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_6_330)">
+<path clip-rule="evenodd" d="M24 0.757355L47.2426 24L24 47.2426L0.757355 24L24 0.757355ZM21 35.7574V12.2426L9.24264 24L21 35.7574Z" fill="currentColor" fill-rule="evenodd"></path>
+</g>
+<defs>
+<clipPath id="clip0_6_330">
+<rect fill="white" height="48" width="48"></rect>
+</clipPath>
+</defs>
+</svg>
+</div>
+<h2 class="text-gray-900 text-xl font-bold">EduSpark</h2>
+</div>
+<nav class="hidden items-center gap-8 md:flex">
+<a class="text-gray-900 text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-gray-500 text-sm font-medium hover:text-primary transition-colors" href="study">Study</a>
+<a class="text-gray-500 text-sm font-medium hover:text-primary transition-colors" href="timetable">Timetable</a>
+<a class="text-gray-500 text-sm font-medium hover:text-primary transition-colors" href="settings">Settings</a>
+</nav>
+<div class="flex items-center gap-4">
+
+<button onclick="dropdown()">
+    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="User avatar image with a colorful gradient background" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA69kBSIMAnPZNbaX0-rFxLE8mypSM0LJNb2L4hQu7EtOzJAyJdp1UO0hprSmQB2yQ4zY2cfQSwqI8jVwr8F_wf2Rp6lkMfpgsTUTZWHRgq9RkahT6WwHE6LLqviTAYf7TD-Hfby08I3NoAR4wzrgPe2F0Km5rO916jLQEcj-GBWUZQWN0NmrVM19_EzyrdFWxZU3dNBoiax4sbhBCY_CWHyKWo-SPS0ydmBWm6a5OwZkfgwLpqtpsnwFS0kDi98otOmS_AxMKE_A");'></div>
+</button>
+<div class="hidden block" id="my_dropdown">
+    <a href="#" class="text-blue-600 font-medium">Profile</a>
+    <a href="#" class="text-blue-600 font-medium">Settings</a>
+    <a href="#" class="text-blue-600 font-medium">Logout</a>
+</div>
+</div>
+</header>
+<main class="p-4 sm:p-6 md:p-10">
+<h1 class="text-2xl text-blue-600 font-semibold">Welcome {{'user.name'}}</h1>
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3 xl:grid-cols-4">
+<div class="flex flex-col gap-6 lg:col-span-2 xl:col-span-2">
+<div class="rounded-2xl border border-black/10 bg-white/50 p-4 shadow-lg">
+<h2 class="text-gray-900 text-[22px] font-bold tracking-tight mb-6">Start Studying</h2>
+<div class="flex flex-col gap-6">
+<label class="flex flex-col">
+<p class="text-gray-700 text-base font-medium pb-2">Subject</p>
+<select class="form-select flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary border border-black/20 bg-white/80 focus:border-primary h-14 placeholder:text-gray-400 px-4 py-2 text-base font-normal">
+<option>Select a Subject</option>
+<option>Mathematics</option>
+<option>English Language</option>
+<option>Physics</option>
+<option>Chemistry</option>
+<option>Biology</option>
+</select>
+</label>
+<label class="flex flex-col">
+<p class="text-gray-700 text-base font-medium pb-2">Topic</p>
+<select class="form-select flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary border border-black/20 bg-white/80 focus:border-primary h-14 placeholder:text-gray-400 px-4 py-2 text-base font-normal" disabled="">
+<option>Select a topic</option>
+</select>
+</label>
+<button class="flex w-full items-center justify-center gap-2 rounded-lg h-14 px-6 bg-primary text-white text-base font-bold transition-transform hover:scale-105">
+<span>Start Reading</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<div class="rounded-2xl border border-black/10 bg-white/50 p-4 shadow-lg lg:col-span-1 xl:col-span-1">
+<div class="flex flex-col items-center text-center">
+<div class="mb-4 bg-center bg-no-repeat aspect-square bg-cover rounded-full size-24 border-2 border-primary" data-alt="User avatar image with a colorful gradient background" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDAKPN5ma2fSsJxrefpxe4Bpvcl2yISNRFarYEDAh2Q51xzllb7mWXcYeDmu1YCxxDsqL1DAaJmBmozaaKmShi0_VP7MsKSjtqgCLiPMg3CheGWawdMiPCb6bF7JUwIW3YQBiKlNKFpIT6P3Ec72N5JK-amy8u3E8OFClu1dTQ6I5xKTnZ0HSZNADkcAOUOIZswQ9QjnzfIo5s2idIaCRAIBadSWi3RMj4nsMIzj3S7Dypayf18Hbw3rIscw9uw3nOloQIgjNonAA");'></div>
+<h3 class="text-xl font-bold text-gray-900">Lotw</h3>
+<p class="text-sm text-gray-500 mb-6">SS2 Student</p>
+<div class="w-full text-left">
+<p class="text-sm font-medium text-gray-700 mb-2">Overall Progress</p>
+<div class="w-full bg-black/10 rounded-full h-2.5 mb-1">
+<div class="bg-gradient-to-r from-[#8E2DE2] to-[#4A00E0] h-2.5 rounded-full" style="width: 75%"></div>
+</div>
+<p class="text-xs text-right text-gray-500">75% Complete</p>
+</div>
+<div class="mt-8 w-full border-t border-black/10 pt-6">
+<p class="text-sm text-gray-500 italic">"The beautiful thing about learning is that no one can take it away from you."</p>
+<p class="text-xs text-gray-400 mt-2">- B.B. King</p>
+</div>
+</div>
+</div>
+<div class="rounded-2xl border border-black/10 bg-white/50 p-4 shadow-lg lg:col-span-1 xl:col-span-1">
+<div class="flex flex-col h-full">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-gray-900 text-xl font-bold tracking-tight">Tasks ✅</h2>
+<button class="flex items-center justify-center size-8 rounded-full bg-black/5 hover:bg-black/10 transition-all">
+<span class="material-symbols-outlined text-xl">add</span>
+</button>
+</div>
+<div class="space-y-3 flex-grow pr-1 overflow-y-auto">
+<div class="flex items-start gap-3 p-3 rounded-lg bg-black/5">
+<input class="form-checkbox mt-1 size-5 rounded-md bg-white/10 border-black/20 text-primary focus:ring-primary focus:ring-offset-background-light" type="checkbox"/>
+<div class="flex-grow">
+<p class="text-gray-800 font-medium">Complete Physics Assignment</p>
+<div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
+<span>Due: Tomorrow</span>
+<span class="size-1.5 rounded-full bg-red-500"></span>
+<span>High Priority</span>
+</div>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 rounded-lg bg-black/5">
+<input checked="" class="form-checkbox mt-1 size-5 rounded-md bg-white/10 border-black/20 text-primary focus:ring-primary focus:ring-offset-background-light" type="checkbox"/>
+<div class="flex-grow">
+<p class="text-gray-400 font-medium line-through">Read Chapter 3 of Biology</p>
+<div class="flex items-center gap-3 text-xs text-gray-400 mt-1">
+<span>Due: Today</span>
+<span class="size-1.5 rounded-full bg-green-500"></span>
+<span>Low Priority</span>
+</div>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 rounded-lg bg-black/5">
+<input class="form-checkbox mt-1 size-5 rounded-md bg-white/10 border-black/20 text-primary focus:ring-primary focus:ring-offset-background-light" type="checkbox"/>
+<div class="flex-grow">
+<p class="text-gray-800 font-medium">Revise Algebra formulas</p>
+<div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
+<span>Due: 25 Oct</span>
+<span class="size-1.5 rounded-full bg-yellow-500"></span>
+<span>Medium Priority</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-4 flex">
+<input class="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary border border-black/20 bg-white/80 focus:border-primary h-10 placeholder:text-gray-400 px-4 py-2 text-sm font-normal" placeholder="Add a new task..." type="text"/>
+</div>
+</div>
+</div>
+<div class="rounded-2xl border border-black/10 bg-white/50 p-4 shadow-lg lg:col-span-3 xl:col-span-4">
+<h2 class="text-gray-900 text-[22px] font-bold tracking-tight px-2 pb-3 pt-1">Your Study Timetable 📆</h2>
+<div class="overflow-x-auto">
+<div class="flex overflow-hidden rounded-lg border border-gray-200">
+<table class="w-full text-sm text-left">
+<thead>
+<tr class="bg-gray-100">
+<th class="px-4 py-3 text-gray-800 font-medium w-1/6">Time</th>
+<th class="px-4 py-3 text-gray-800 font-medium w-1/6">Monday</th>
+<th class="px-4 py-3 text-gray-800 font-medium w-1/6">Tuesday</th>
+<th class="px-4 py-3 text-gray-800 font-medium w-1/6">Wednesday</th>
+<th class="px-4 py-3 text-gray-800 font-medium w-1/6">Thursday</th>
+<th class="px-4 py-3 text-gray-800 font-medium w-1/6">Friday</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-t border-t-gray-200">
+<td class="px-4 py-4 font-medium text-gray-600">8:00 - 9:30</td>
+<td class="px-4 py-4 text-gray-500">Mathematics</td>
+<td class="px-4 py-4 text-gray-500">Physics</td>
+<td class="px-4 py-4 text-gray-500">English Language</td>
+<td class="px-4 py-4 text-gray-500">Chemistry</td>
+<td class="px-4 py-4 text-gray-500">Biology</td>
+</tr>
+<tr class="border-t border-t-gray-200">
+<td class="px-4 py-4 font-medium text-gray-600">10:00 - 11:30</td>
+<td class="px-4 py-4 text-gray-500">Chemistry</td>
+<td class="px-4 py-4 text-gray-500">Biology</td>
+<td class="px-4 py-4 text-gray-500">Mathematics</td>
+<td class="px-4 py-4 text-gray-500">English Language</td>
+<td class="px-4 py-4 text-gray-500">Physics</td>
+</tr>
+<tr class="border-t border-t-gray-200">
+<td class="px-4 py-4 font-medium text-gray-600">1:00 - 2:30</td>
+<td class="px-4 py-4 text-gray-500">English Language</td>
+<td class="px-4 py-4 text-gray-500">Chemistry</td>
+<td class="px-4 py-4 text-gray-500">Physics</td>
+<td class="px-4 py-4 text-gray-500">Biology</td>
+<td class="px-4 py-4 text-gray-500">Mathematics</td>
+</tr>
+<tr class="border-t border-t-gray-200">
+<td class="px-4 py-4 font-medium text-gray-600">3:00 - 4:30</td>
+<td class="px-4 py-4 text-gray-500">Biology</td>
+<td class="px-4 py-4 text-gray-500">Mathematics</td>
+<td class="px-4 py-4 text-gray-500">Chemistry</td>
+<td class="px-4 py-4 text-gray-500">Physics</td>
+<td class="px-4 py-4 text-gray-500">English Language</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- AI Tutor Chat Modal -->
+<div id="tutorModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-96 md:h-auto md:max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between p-6 border-b border-gray-200">
+            <h3 class="text-xl font-bold text-gray-900">AI Tutor: <span id="modalTopic" class="text-primary"></span></h3>
+            <button onclick="closeTutorModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+        </div>
+
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4">
+            <!-- Messages will be appended here -->
+        </div>
+
+        <div class="p-6 border-t border-gray-200">
+            <div class="flex gap-3">
+                <input
+                    id="chatInput"
+                    type="text"
+                    placeholder="Type your message or answer here..."
+                    class="flex-1 rounded-lg border border-black/20 bg-white/80 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
+                    onkeydown="if(event.key === 'Enter') sendMessage();"
+                />
+                <button
+                    onclick="sendMessage()"
+                    class="bg-primary text-white rounded-lg px-6 py-3 font-medium hover:scale-105 transition-transform"
+                >
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+
+    const subjectTopics = {
+        "Mathematics": ["Algebra", "Trigonometry", "Functions", "Statistics", "Geometry"],
+        "English Language": ["Comprehension", "Summary Writing", "Essay Writing", "Lexis and Structure"],
+        "Physics": ["Motion", "Electricity", "Waves", "Energy", "Heat Transfer"],
+        "Chemistry": ["Atomic Structure", "Periodic Table", "Chemical Bonding", "Acids & Bases", "Organic Chemistry"],
+        "Biology": ["Cell Structure", "Respiration", "Reproduction", "Ecology", "Genetics"]
+    };
+
+    let currentTopic = null;
+
+    // Select elements
+    const subjectSelect = document.querySelectorAll('label select')[0];
+    const topicSelect = document.querySelectorAll('label select')[1];
+    const startButton = document.querySelector('button.bg-primary');
+    const activeSessionsContainer = document.createElement('div');
+    activeSessionsContainer.className = "mt-8";
+
+    // Insert active sessions section after the "Start Studying" card
+    const startStudyingCard = document.querySelector('.rounded-2xl.border-black\\/10.bg-white\\/50.p-4.shadow-lg');
+    startStudyingCard.parentNode.insertBefore(activeSessionsContainer, startStudyingCard.nextSibling);
+
+    // Handle subject change
+    subjectSelect.addEventListener("change", () => {
+        const selected = subjectSelect.value;
+        topicSelect.innerHTML = "<option>Select a topic</option>";
+        topicSelect.disabled = true;
+
+        if (subjectTopics[selected]) {
+            topicSelect.disabled = false;
+            subjectTopics[selected].forEach(topic => {
+                const option = document.createElement("option");
+                option.textContent = topic;
+                option.value = topic;
+                topicSelect.appendChild(option);
+            });
+        }
+    });
+
+    // Load active sessions on page load
+    async function loadActiveSessions() {
+        try {
+            const res = await fetch('/api/tutor/sessions');
+            const sessions = await res.json();
+
+            if (sessions.length === 0) {
+                activeSessionsContainer.innerHTML = '';
+                return;
+            }
+
+            activeSessionsContainer.innerHTML = `
+                <div class="rounded-2xl border border-black/10 bg-white/50 p-6 shadow-lg">
+                    <h2 class="text-gray-900 text-[22px] font-bold tracking-tight mb-6">Continue Studying</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${sessions.map(s => `
+                            <button
+                                onclick="openTutorModal('${s.topic}')"
+                                class="text-left p-4 rounded-xl bg-gradient-to-r from-purple-100 to-blue-100 hover:from-purple-200 hover:to-blue-200 transition-all border border-black/10"
+                            >
+                                <p class="font-semibold text-gray-800">${s.topic}</p>
+                                <p class="text-sm text-gray-500">Last studied: ${new Date(s.last_updated).toLocaleDateString()}</p>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } catch (err) {
+            console.error("Failed to load sessions:", err);
+        }
+    }
+
+    // Open tutor modal and start/resume session
+    async function openTutorModal(topic) {
+        currentTopic = topic;
+        document.getElementById('modalTopic').textContent = topic;
+        document.getElementById('tutorModal').classList.remove('hidden');
+        document.getElementById('tutorModal').classList.add('flex');
+        document.getElementById('chatMessages').innerHTML = '<p class="text-gray-500 text-center">Loading conversation...</p>';
+
+        try {
+            const res = await fetch('/api/tutor/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                appendMessage('ai', data.reply);
+            } else {
+                appendMessage('error', data.message || 'Failed to start session');
+            }
+        } catch (err) {
+            appendMessage('error', 'Connection error. Is Ollama running?');
+        }
+    }
+
+    function closeTutorModal() {
+        document.getElementById('tutorModal').classList.add('hidden');
+        document.getElementById('tutorModal').classList.remove('flex');
+        currentTopic = null;
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message || !currentTopic) return;
+
+        appendMessage('user', message);
+        input.value = '';
+
+        try {
+            const res = await fetch('/api/tutor/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic: currentTopic, message })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                appendMessage('ai', data.reply);
+            } else {
+                appendMessage('error', data.message || 'Something went wrong');
+            }
+        } catch (err) {
+            appendMessage('error', 'Failed to connect to AI tutor');
+        }
+    }
+
+    function appendMessage(sender, text) {
+        const chat = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = sender === 'user'
+            ? 'ml-auto max-w-md bg-primary text-white rounded-2xl rounded-br-none px-5 py-3'
+            : sender === 'ai'
+            ? 'mr-auto max-w-md bg-black/5 rounded-2xl rounded-bl-none px-5 py-3'
+            : 'text-center text-red-600 font-medium';
+
+        div.textContent = text;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    // Start new session from dropdown
+    startButton.addEventListener('click', () => {
+        const subject = subjectSelect.value;
+        const topic = topicSelect.value;
+
+        if (!subject || subject === "Select a Subject") {
+            alert("Please select a subject");
+            return;
+        }
+        if (!topic || topic === "Select a topic") {
+            alert("Please select a topic");
+            return;
+        }
+
+        const fullTopic = `${subject}: ${topic}`;
+        openTutorModal(fullTopic);
+    });
+
+    // Dropdown menu (your existing code improved)
+    function dropdown() {
+        document.getElementById("my_dropdown").classList.toggle("hidden");
+        document.getElementById("my_dropdown").classList.toggle("block");
+    }
+
+    window.onclick = function(event) {
+        if (!event.target.closest('header > div:last-child')) {
+            document.getElementById("my_dropdown").classList.add("hidden");
+            document.getElementById("my_dropdown").classList.remove("block");
+        }
+    }
+
+    // Load active sessions when page loads
+    window.addEventListener('load', loadActiveSessions);
+</script>
+</body>
+</html>

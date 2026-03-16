@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Portal - Authentication</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-4xl w-full">
+        <div class="md:flex">
+            <!-- Left Side - Info Panel -->
+            <div class="md:w-5/12 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white flex flex-col justify-center">
+                <h2 class="text-3xl font-bold mb-4">EduSpark</h2>
+                <p class="text-blue-100 mb-6">
+                    Manage your learning journey with personalized subject tracking and progress monitoring.
+                </p>
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-book text-2xl"></i>
+                        <span>Track multiple subjects</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-graduation-cap text-2xl"></i>
+                        <span>Monitor your progress</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-user text-2xl"></i>
+                        <span>Personalized experience</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side - Form Panel -->
+            <div class="md:w-7/12 p-8">
+                <!-- Tab Buttons -->
+                <div class="flex gap-2 mb-6">
+                    <button onclick="switchTab('login')" id="loginTab" class="flex-1 py-2 px-4 rounded-lg font-semibold transition bg-blue-600 text-white">
+                        Login
+                    </button>
+                    <button onclick="switchTab('signup')" id="signupTab" class="flex-1 py-2 px-4 rounded-lg font-semibold transition bg-gray-100 text-gray-600 hover:bg-gray-200">
+                        Sign Up
+                    </button>
+                </div>
+
+                <!-- Error Message -->
+                <div id="errorMessage" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg"></div>
+
+                <!-- Login Form -->
+                <div id="loginForm" class="transition-all duration-500 ease-in-out">
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                            <div class="relative">
+                                <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="email" id="loginEmail" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="your@email.com">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <div class="relative">
+                                <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="password" id="loginPassword" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••">
+                            </div>
+                        </div>
+
+                        <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                            Login
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Signup Form -->
+                <div id="signupForm" class="hidden transition-all duration-500 ease-in-out">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                            <div class="relative">
+                                <i class="fas fa-user absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" id="signupName" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="John Doe">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                            <div class="relative">
+                                <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="email" id="signupEmail" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="your@email.com">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <div class="relative">
+                                <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="password" id="signupPassword" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Level/Class</label>
+                            <select id="signupLevel" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">Select your grade</option>
+                                <option value="Grade 7">Grade 7</option>
+                                <option value="Grade 8">Grade 8</option>
+                                <option value="Grade 9">Grade 9</option>
+                                <option value="Grade 10">Grade 10</option>
+                                <option value="Grade 11">Grade 11</option>
+                                <option value="Grade 12">Grade 12</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Subjects Offering</label>
+                            <div class="grid grid-cols-2 gap-2" id="subjectsGrid">
+                                <button type="button" onclick="toggleSubject(this, 'Mathematics')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    Mathematics
+                                </button>
+                                <button type="button" onclick="toggleSubject(this, 'Physics')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    Physics
+                                </button>
+                                <button type="button" onclick="toggleSubject(this, 'Chemistry')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    Chemistry
+                                </button>
+                                <button type="button" onclick="toggleSubject(this, 'Biology')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    Biology
+                                </button>
+                                <button type="button" onclick="toggleSubject(this, 'English')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    English
+                                </button>
+                                <button type="button" onclick="toggleSubject(this, 'History')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    History
+                                </button>
+                                <button type="button" onclick="toggleSubject(this, 'Geography')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    Geography
+                                </button>
+                                <button type="button" onclick="toggleSubject(this, 'Computer Science')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    Computer Science
+                                </button>
+                            </div>
+                        </div>
+
+                        <button onclick="handleSignup()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                            Create Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   <script>
+
+        let selectedSubjects = [];
+
+        function switchTab(tab) {
+            const loginTab = document.getElementById('loginTab');
+            const signupTab = document.getElementById('signupTab');
+            const loginForm = document.getElementById('loginForm');
+            const signupForm = document.getElementById('signupForm');
+            const errorMessage = document.getElementById('errorMessage');
+
+            errorMessage.classList.add('hidden');
+
+            if (tab === 'login') {
+                loginTab.classList.add('bg-blue-600', 'text-white');
+                loginTab.classList.remove('bg-gray-100', 'text-gray-600');
+                signupTab.classList.remove('bg-blue-600', 'text-white');
+                signupTab.classList.add('bg-gray-100', 'text-gray-600');
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+            } else {
+                signupTab.classList.add('bg-blue-600', 'text-white');
+                signupTab.classList.remove('bg-gray-100', 'text-gray-600');
+                loginTab.classList.remove('bg-blue-600', 'text-white');
+                loginTab.classList.add('bg-gray-100', 'text-gray-600');
+                signupForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+            }
+        }
+
+        function toggleSubject(button, subject) {
+            if (selectedSubjects.includes(subject)) {
+                selectedSubjects = selectedSubjects.filter(s => s !== subject);
+                button.classList.remove('bg-blue-600', 'text-white');
+                button.classList.add('bg-gray-100', 'text-gray-700');
+            } else {
+                selectedSubjects.push(subject);
+                button.classList.add('bg-blue-600', 'text-white');
+                button.classList.remove('bg-gray-100', 'text-gray-700');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    showError(data.message);
+                }
+            } catch (error) {
+                showError('An error occurred. Please try again.');
+            }
+        }
+
+        async function handleSignup() {
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const level = document.getElementById('signupLevel').value;
+
+            if (!name || !email || !password || !level) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            if (selectedSubjects.length === 0) {
+                showError('Please select at least one subject');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        password,
+                        level,
+                        subjects: selectedSubjects
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    showError(data.message);
+                }
+            } catch (error) {
+                showError('An error occurred. Please try again.');
+            }
+        }
+
+        // Allow Enter key to submit
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const loginForm = document.getElementById('loginForm');
+                if (!loginForm.classList.contains('hidden')) {
+                    handleLogin();
+                } else {
+                    handleSignup();
+                }
+            }
+        });
+
+   </script>
+</body>
+</html>
