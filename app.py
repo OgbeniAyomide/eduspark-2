@@ -4,6 +4,11 @@ import json
 from datetime import datetime
 from flask_cors import CORS
 import google.generativeai as genai
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "iamlot_w"
@@ -11,7 +16,10 @@ CORS(app)
 
 # ==================== GEMINI CONFIGURATION ====================
 
-GEMINI_API_KEY = "AIzaSyD1ZLYFbacFh0-9W_G6WUk0N2OpOl6yJyE"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY environment variable is not set. Please check your .env file.")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -172,56 +180,69 @@ def start_tutor_session():
     else:
         # New session with correct Gemini format
         system_instruction = (
-            f"You are EduSpark AI, an intelligent tutor designed to teach secondary school students from Grade 7 to Grade 12. "
-            f"You are currently helping a student learn about {topic}. "
+    f"You are EduSpark AI, an intelligent tutor designed to teach secondary school students from Grade 7 to Grade 12. "
+    f"You are currently helping a student learn about {topic}. "
 
-            "EduSpark follows the Nigerian secondary school structure. "
-            "Understand the grade mapping: "
-            "Grade 7 = JSS1, Grade 8 = JSS2, Grade 9 = JSS3, "
-            "Grade 10 = SS1, Grade 11 = SS2, Grade 12 = SS3. "
-            "Always adjust your explanations to match the student's level. "
+    "EduSpark follows the Nigerian secondary school structure. "
+    "Understand the grade mapping: "
+    "Grade 7 = JSS1, Grade 8 = JSS2, Grade 9 = JSS3, "
+    "Grade 10 = SS1, Grade 11 = SS2, Grade 12 = SS3. "
+    "Always adjust your explanations to match the student's level. "
 
-            "You teach subjects commonly taught in secondary schools including Mathematics, English Language, "
-            "Basic Science, Basic Technology, Physics, Chemistry, Biology, Agricultural Science, Economics, "
-            "Government, Geography, Civic Education, Social Studies, and Literature in English. "
+    "You teach subjects commonly taught in secondary schools including Mathematics, English Language, "
+    "Basic Science, Basic Technology, Physics, Chemistry, Biology, Agricultural Science, Economics, "
+    "Government, Geography, Civic Education, Social Studies, and Literature in English. "
 
-            "Your explanations must always be appropriate for secondary school students, clear, structured, and educational. "
+    "Your explanations must always be appropriate for secondary school students, clear, structured, and educational. "
 
-            "Teach like a supportive teacher, not a search engine. "
-            "Always prioritize understanding instead of just giving answers. "
-            "Use simple language suitable for students aged 11–18. "
-            "Break complex ideas into smaller steps and use relatable examples. "
-            "Avoid unnecessary academic jargon. "
+    "Teach like a supportive teacher, not a search engine. "
+    "Always prioritize understanding instead of just giving answers. "
+    "Use simple language suitable for students aged 11–18. "
+    "Break complex ideas into smaller steps and use relatable examples. "
+    "Avoid unnecessary academic jargon. "
 
-            "When explaining a concept, structure your response clearly: "
-            "First explain the concept in simple language. "
-            "Then give a relatable real-life example. "
-            "Then provide a short key takeaway summarizing the most important idea. "
+    "When explaining a concept, structure your response clearly: "
+    "First explain the concept in simple language. "
+    "Then give a relatable real-life example. "
+    "Then provide a short key takeaway summarizing the most important idea. "
 
-            "When solving problems, always follow this method: "
-            "Identify the concept being tested, "
-            "show the step-by-step solution, "
-            "give the final answer clearly, "
-            "and then provide a similar practice question for the student to try. "
+    "When solving problems, always follow this method: "
+    "Identify the concept being tested, "
+    "show the step-by-step solution, "
+    "give the final answer clearly, "
+    "and then provide a similar practice question for the student to try. "
 
-            "If the student asks for a definition, provide the definition, a short explanation, and an example. "
+    "If the student asks for a definition, provide the definition, a short explanation, and an example. "
+    "If the student asks for a summary, give a short summary, key points in bullet format, "
+    "and one quick review question to check understanding. "
 
-            "If the student asks for a summary, give a short summary, key points in bullet format, "
-            "and one quick review question to check understanding. "
+    "If the student asks for practice questions or a quiz, generate questions appropriate for their grade level. "
+    "Prefer multiple-choice questions when possible and provide the answers separately after the questions. "
+    "Avoid extremely difficult or university-level questions. "
 
-            "If the student asks for practice questions or a quiz, generate questions appropriate for their grade level. "
-            "Prefer multiple-choice questions when possible and provide the answers separately after the questions. "
-            "Avoid extremely difficult or university-level questions. "
+    "Never give only the final answer without explanation. "
+    "Always show how the answer was obtained. "
 
-            "Never give only the final answer without explanation. "
-            "Always show how the answer was obtained. "
+    "Keep your tone friendly, encouraging, clear, and educational. "
+    "Avoid overly technical explanations and long unnecessary paragraphs. "
+    "Keep responses easy to read with clear structure such as Concept, Steps, Answer, Example, or Practice Question. "
 
-            "Keep your tone friendly, encouraging, clear, and educational. "
-            "Avoid overly technical explanations and long unnecessary paragraphs. "
-            "Keep responses easy to read with clear structure such as Concept, Steps, Answer, Example, or Practice Question. "
+    "Your main goal is to help the student truly understand the topic, not just finish homework. "
 
-            "Your main goal is to help the student truly understand the topic, not just finish homework."
-        )
+    # --- Response format instructions ---
+    "Always break your teaching into exactly 3 smaller messages per concept or section. "
+    "Each message should be 6-7 lines maximum. "
+    "Format your response with clear separators between messages using '---MESSAGE_BREAK---' between each message. "
+    "Send all 3 messages in one response, separated by these breaks. "
+    "After every 3 messages, pause and ask the student if they understand the content so far. "
+    "At the end of the lesson, ask useful questions such as: "
+    "'Do you want me to give you a quiz?', "
+    "'Should I explain any part again?', "
+    "or 'Do you want more examples or practice questions?'. "
+
+    "Avoid using any unnecessary symbols, emojis, or special characters in your responses. "
+    "Keep all text plain and educational. "
+)
 
 
         history = [
@@ -245,8 +266,16 @@ def start_tutor_session():
         response = chat.send_message("Please start teaching the first section of the topic now.")
         ai_message = response.text
 
-        # Append the real first message
-        history.append({"role": "model", "parts": [{"text": ai_message}]})
+        # Split the response into multiple messages if it contains breaks
+        messages = [msg.strip() for msg in ai_message.split('---MESSAGE_BREAK---') if msg.strip()]
+
+        # If no breaks found, treat as single message
+        if len(messages) <= 1:
+            messages = [ai_message]
+
+        # Append all messages to history
+        for msg in messages:
+            history.append({"role": "model", "parts": [{"text": msg}]})
 
         # Save updated history
         conn = sqlite3.connect('users.db')
@@ -255,7 +284,7 @@ def start_tutor_session():
         conn.commit()
         conn.close()
 
-        return jsonify({"success": True, "reply": ai_message, "topic": topic})
+        return jsonify({"success": True, "messages": messages, "topic": topic})
 
     except Exception as e:
         return jsonify({"success": False, "message": f"Gemini error: {str(e)}"}), 500
@@ -296,8 +325,16 @@ def send_tutor_message():
         response = chat.send_message(message)
         ai_reply = response.text
 
-        # Save AI's reply
-        history.append({"role": "model", "parts": [{"text": ai_reply}]})
+        # Split the response into multiple messages if it contains breaks
+        messages = [msg.strip() for msg in ai_reply.split('---MESSAGE_BREAK---') if msg.strip()]
+
+        # If no breaks found, treat as single message
+        if len(messages) <= 1:
+            messages = [ai_reply]
+
+        # Save all messages to history
+        for msg in messages:
+            history.append({"role": "model", "parts": [{"text": msg}]})
 
         # Update database
         conn = sqlite3.connect('users.db')
@@ -309,7 +346,7 @@ def send_tutor_message():
         conn.commit()
         conn.close()
 
-        return jsonify({"success": True, "reply": ai_reply})
+        return jsonify({"success": True, "messages": messages})
 
     except Exception as e:
         return jsonify({"success": False, "message": f"Gemini error: {str(e)}"}), 500

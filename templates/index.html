@@ -6,8 +6,10 @@
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <script>
         tailwind.config = {
             darkMode: "class",
@@ -19,7 +21,7 @@
                         "background-dark": "#131022",
                     },
                     fontFamily: {
-                        "display": ["Space Grotesk", "sans-serif"]
+                        "display": ["Jakarta", "sans-serif"],
                     },
                     borderRadius: {
                         "DEFAULT": "0.5rem",
@@ -41,19 +43,14 @@
 <div class="relative min-h-screen w-full">
 <header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-black/10 bg-background-light/50 px-4 py-3 backdrop-blur-lg sm:px-6 md:px-10">
 <div class="flex items-center gap-4">
-<div class="size-6 text-primary">
-<svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_6_330)">
-<path clip-rule="evenodd" d="M24 0.757355L47.2426 24L24 47.2426L0.757355 24L24 0.757355ZM21 35.7574V12.2426L9.24264 24L21 35.7574Z" fill="currentColor" fill-rule="evenodd"></path>
-</g>
-<defs>
-<clipPath id="clip0_6_330">
-<rect fill="white" height="48" width="48"></rect>
-</clipPath>
-</defs>
-</svg>
+<div class="size-8 text-primary text-2xl">
+<span><i class="fa-solid fa-book-open-reader"></i></span>
 </div>
-<h2 class="text-gray-900 text-xl font-bold">EduSpark</h2>
+<div class="flex flex-col">
+    <h2 class="text-gray-900 text-xl font-bold">EduSpark</h2>
+<p class="text-xs text-gray-600 mt-1">Start your learning journey 
+</p>
+</div>
 </div>
 <nav class="hidden items-center gap-8 md:flex">
 <a class="text-gray-900 text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
@@ -125,7 +122,7 @@
 <div class="rounded-2xl border border-black/10 bg-white/50 p-4 shadow-lg lg:col-span-1 xl:col-span-1">
 <div class="flex flex-col h-full">
 <div class="flex items-center justify-between mb-4">
-<h2 class="text-gray-900 text-xl font-bold tracking-tight">Tasks ✅</h2>
+<h2 class="text-gray-900 text-xl font-bold tracking-tight">Tasks </h2>
 <button class="flex items-center justify-center size-8 rounded-full bg-black/5 hover:bg-black/10 transition-all">
 <span class="material-symbols-outlined text-xl">add</span>
 </button>
@@ -171,7 +168,7 @@
 </div>
 </div>
 <div class="rounded-2xl border border-black/10 bg-white/50 p-4 shadow-lg lg:col-span-3 xl:col-span-4">
-<h2 class="text-gray-900 text-[22px] font-bold tracking-tight px-2 pb-3 pt-1">Your Study Timetable 📆</h2>
+<h2 class="text-gray-900 text-[22px] font-bold tracking-tight px-2 pb-3 pt-1">Your Study Timetable </h2>
 <div class="overflow-x-auto">
 <div class="flex overflow-hidden rounded-lg border border-gray-200">
 <table class="w-full text-sm text-left">
@@ -347,7 +344,17 @@
             const data = await res.json();
 
             if (data.success) {
-                appendMessage('ai', data.reply);
+                // Handle multiple messages
+                if (data.messages && Array.isArray(data.messages)) {
+                    data.messages.forEach((message, index) => {
+                        setTimeout(() => {
+                            appendMessage('ai', message);
+                        }, index * 1000); // Add 1 second delay between messages
+                    });
+                } else {
+                    // Fallback for single message
+                    appendMessage('ai', data.reply || data.messages);
+                }
             } else {
                 appendMessage('error', data.message || 'Failed to start session');
             }
@@ -379,7 +386,17 @@
             const data = await res.json();
 
             if (data.success) {
-                appendMessage('ai', data.reply);
+                // Handle multiple messages
+                if (data.messages && Array.isArray(data.messages)) {
+                    data.messages.forEach((message, index) => {
+                        setTimeout(() => {
+                            appendMessage('ai', message);
+                        }, index * 1000); // Add 1 second delay between messages
+                    });
+                } else {
+                    // Fallback for single message
+                    appendMessage('ai', data.reply || data.messages);
+                }
             } else {
                 appendMessage('error', data.message || 'Something went wrong');
             }

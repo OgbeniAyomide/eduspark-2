@@ -6,147 +6,218 @@
     <title>Student Portal - Authentication</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-4xl w-full">
-        <div class="md:flex">
-            <!-- Left Side - Info Panel -->
-            <div class="md:w-5/12 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white flex flex-col justify-center">
-                <h2 class="text-3xl font-bold mb-4">EduSpark</h2>
-                <p class="text-blue-100 mb-6">
-                    Manage your learning journey with personalized subject tracking and progress monitoring.
-                </p>
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen flex items-center justify-center p-4">
+    <style>
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .input-field {
+            transition: all 0.3s ease;
+        }
+        
+        .input-field:focus {
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .tab-btn {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            transition: width 0.3s ease;
+        }
+        
+        .tab-btn.active::after {
+            width: 100%;
+        }
+        
+        .subject-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .subject-btn.selected {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+    
+    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-md w-full border border-gray-100 animate-fade-in-up">
+        <div class="pt-12 pb-8 px-8 text-center">
+            <div class="bg-blue-600 rounded-2xl text-white text-4xl mb-6 inline-flex items-center justify-center animate-slide-in w-16 h-16">
+                <span class="flex items-center justify-center"><i class="fa-solid fa-book-open-reader"></i></span>
+
+            </div>
+            <h1 class="text-2xl font-extrabold text-gray-900">Eduspark</h1>
+            <p class="text-sm text-gray-600 mt-1">Your learning journey starts here</p>
+        </div>
+        <!-- Form Container -->
+        <div class="p-8">
+            <!-- Tab Buttons -->
+            <div class="flex gap-3 mb-8 border-b border-gray-200 pb-4 justify-center">
+                <button onclick="switchTab('login')" id="loginTab" class="tab-btn active py-2 px-4 font-semibold text-gray-900 transition relative">
+                    <span class="flex items-center gap-2">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login
+                    </span>
+                </button>
+                <button onclick="switchTab('signup')" id="signupTab" class="tab-btn py-2 px-4 font-semibold text-gray-500 hover:text-gray-700 transition relative">
+                    <span class="flex items-center gap-2">
+                        <i class="fas fa-user-plus"></i>
+                        Sign Up
+                    </span>
+                </button>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg flex items-center gap-2 animate-fade-in-up">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorText"></span>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="transition-all duration-500 ease-in-out">
+
                 <div class="space-y-4">
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-book text-2xl"></i>
-                        <span>Track multiple subjects</span>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-800 mb-2">Email Address</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                            <input type="email" id="loginEmail" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="your@email.com">
+                        </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-graduation-cap text-2xl"></i>
-                        <span>Monitor your progress</span>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-800 mb-2">Password</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                            <input type="password" id="loginPassword" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="••••••••">
+                        </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-user text-2xl"></i>
-                        <span>Personalized experience</span>
+
+                    <div class="flex items-center justify-between pt-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-blue-600">
+                            <span class="text-sm text-gray-600">Remember me</span>
+                        </label>
+                        <a href="#" class="text-sm text-blue-600 hover:text-blue-700 font-medium">Forgot password?</a>
                     </div>
+
+                    <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition transform hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 duration-200 mt-6">
+                        Sign In
+                    </button>
                 </div>
             </div>
 
-            <!-- Right Side - Form Panel -->
-            <div class="md:w-7/12 p-8">
-                <!-- Tab Buttons -->
-                <div class="flex gap-2 mb-6">
-                    <button onclick="switchTab('login')" id="loginTab" class="flex-1 py-2 px-4 rounded-lg font-semibold transition bg-blue-600 text-white">
-                        Login
-                    </button>
-                    <button onclick="switchTab('signup')" id="signupTab" class="flex-1 py-2 px-4 rounded-lg font-semibold transition bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        Sign Up
-                    </button>
-                </div>
-
-                <!-- Error Message -->
-                <div id="errorMessage" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg"></div>
-
-                <!-- Login Form -->
-                <div id="loginForm" class="transition-all duration-500 ease-in-out">
-
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                            <div class="relative">
-                                <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                <input type="email" id="loginEmail" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="your@email.com">
-                            </div>
+            <!-- Signup Form -->
+            <div id="signupForm" class="hidden transition-all duration-500 ease-in-out">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-800 mb-2">Full Name</label>
+                        <div class="relative">
+                            <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                            <input type="text" id="signupName" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="John Doe">
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                            <div class="relative">
-                                <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                <input type="password" id="loginPassword" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••">
-                            </div>
-                        </div>
-
-                        <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                            Login
-                        </button>
                     </div>
-                </div>
 
-                <!-- Signup Form -->
-                <div id="signupForm" class="hidden transition-all duration-500 ease-in-out">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                            <div class="relative">
-                                <i class="fas fa-user absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                <input type="text" id="signupName" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="John Doe">
-                            </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-800 mb-2">Email Address</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                            <input type="email" id="signupEmail" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="your@email.com">
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                            <div class="relative">
-                                <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                <input type="email" id="signupEmail" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="your@email.com">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                            <div class="relative">
-                                <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                <input type="password" id="signupPassword" class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Level/Class</label>
-                            <select id="signupLevel" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Select your grade</option>
-                                <option value="Grade 7">Grade 7</option>
-                                <option value="Grade 8">Grade 8</option>
-                                <option value="Grade 9">Grade 9</option>
-                                <option value="Grade 10">Grade 10</option>
-                                <option value="Grade 11">Grade 11</option>
-                                <option value="Grade 12">Grade 12</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Subjects Offering</label>
-                            <div class="grid grid-cols-2 gap-2" id="subjectsGrid">
-                                <button type="button" onclick="toggleSubject(this, 'Mathematics')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    Mathematics
-                                </button>
-                                <button type="button" onclick="toggleSubject(this, 'Physics')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    Physics
-                                </button>
-                                <button type="button" onclick="toggleSubject(this, 'Chemistry')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    Chemistry
-                                </button>
-                                <button type="button" onclick="toggleSubject(this, 'Biology')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    Biology
-                                </button>
-                                <button type="button" onclick="toggleSubject(this, 'English')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    English
-                                </button>
-                                <button type="button" onclick="toggleSubject(this, 'History')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    History
-                                </button>
-                                <button type="button" onclick="toggleSubject(this, 'Geography')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    Geography
-                                </button>
-                                <button type="button" onclick="toggleSubject(this, 'Computer Science')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">
-                                    Computer Science
-                                </button>
-                            </div>
-                        </div>
-
-                        <button onclick="handleSignup()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                            Create Account
-                        </button>
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-800 mb-2">Password</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                            <input type="password" id="signupPassword" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-800 mb-2">Grade Level</label>
+                        <select id="signupLevel" class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50">
+                            <option value="">Select your grade</option>
+                            <option value="Grade 7">Grade 7</option>
+                            <option value="Grade 8">Grade 8</option>
+                            <option value="Grade 9">Grade 9</option>
+                            <option value="Grade 10">Grade 10</option>
+                            <option value="Grade 11">Grade 11</option>
+                            <option value="Grade 12">Grade 12</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-800 mb-3">Choose Your Subjects</label>
+                        <div class="grid grid-cols-2 gap-2" id="subjectsGrid">
+                            <button type="button" onclick="toggleSubject(this, 'Mathematics')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-calculator text-xs mr-1"></i>Math
+                            </button>
+                            <button type="button" onclick="toggleSubject(this, 'Physics')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-atom text-xs mr-1"></i>Physics
+                            </button>
+                            <button type="button" onclick="toggleSubject(this, 'Chemistry')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-flask text-xs mr-1"></i>Chem
+                            </button>
+                            <button type="button" onclick="toggleSubject(this, 'Biology')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-leaf text-xs mr-1"></i>Biology
+                            </button>
+                            <button type="button" onclick="toggleSubject(this, 'English')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-book-open text-xs mr-1"></i>English
+                            </button>
+                            <button type="button" onclick="toggleSubject(this, 'History')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-landmark text-xs mr-1"></i>History
+                            </button>
+                            <button type="button" onclick="toggleSubject(this, 'Geography')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-globe text-xs mr-1"></i>Geography
+                            </button>
+                            <button type="button" onclick="toggleSubject(this, 'Computer Science')" class="subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent">
+                                <i class="fas fa-laptop text-xs mr-1"></i>CS
+                            </button>
+                        </div>
+                    </div>
+
+                    <button onclick="handleSignup()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition transform hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 duration-200 mt-6">
+                        Create Account
+                    </button>
                 </div>
             </div>
         </div>
@@ -166,17 +237,21 @@
             errorMessage.classList.add('hidden');
 
             if (tab === 'login') {
-                loginTab.classList.add('bg-blue-600', 'text-white');
-                loginTab.classList.remove('bg-gray-100', 'text-gray-600');
-                signupTab.classList.remove('bg-blue-600', 'text-white');
-                signupTab.classList.add('bg-gray-100', 'text-gray-600');
+                loginTab.classList.add('active');
+                loginTab.classList.remove('text-gray-500');
+                loginTab.classList.add('text-gray-900');
+                signupTab.classList.remove('active');
+                signupTab.classList.remove('text-gray-900');
+                signupTab.classList.add('text-gray-500');
                 loginForm.classList.remove('hidden');
                 signupForm.classList.add('hidden');
             } else {
-                signupTab.classList.add('bg-blue-600', 'text-white');
-                signupTab.classList.remove('bg-gray-100', 'text-gray-600');
-                loginTab.classList.remove('bg-blue-600', 'text-white');
-                loginTab.classList.add('bg-gray-100', 'text-gray-600');
+                signupTab.classList.add('active');
+                signupTab.classList.remove('text-gray-500');
+                signupTab.classList.add('text-gray-900');
+                loginTab.classList.remove('active');
+                loginTab.classList.remove('text-gray-900');
+                loginTab.classList.add('text-gray-500');
                 signupForm.classList.remove('hidden');
                 loginForm.classList.add('hidden');
             }
@@ -185,18 +260,19 @@
         function toggleSubject(button, subject) {
             if (selectedSubjects.includes(subject)) {
                 selectedSubjects = selectedSubjects.filter(s => s !== subject);
-                button.classList.remove('bg-blue-600', 'text-white');
-                button.classList.add('bg-gray-100', 'text-gray-700');
+                button.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'selected');
+                button.classList.add('bg-gray-100', 'text-gray-700', 'border-transparent');
             } else {
                 selectedSubjects.push(subject);
-                button.classList.add('bg-blue-600', 'text-white');
-                button.classList.remove('bg-gray-100', 'text-gray-700');
+                button.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'selected');
+                button.classList.remove('bg-gray-100', 'text-gray-700', 'border-transparent');
             }
         }
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
             errorDiv.classList.remove('hidden');
         }
 
