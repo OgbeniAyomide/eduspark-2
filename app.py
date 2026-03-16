@@ -11,7 +11,7 @@ CORS(app)
 
 # ==================== GEMINI CONFIGURATION ====================
 
-GEMINI_API_KEY = "AIzaSyAIgcBT8NogocbfLCaSie_KLGi_Yv1zZUM"
+GEMINI_API_KEY = "AIzaSyARzQxsdSmYV5h2zL3S3r-jKriME1LRGzU"
 
 genai.configure(api_key=GEMINI_API_KEY)
 
