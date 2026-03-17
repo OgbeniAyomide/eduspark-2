@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import sqlite3
 import json
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 from datetime import datetime
 from flask_cors import CORS
 import google.generativeai as genai
@@ -11,7 +13,7 @@ import os
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "iamlot_w"
+app.secret_key = "fhdsshdhfskshfdskshffjjshhfsjwwjffhsahdhfeajoffkdmmvbvbsv"
 CORS(app)
 
 # ==================== GEMINI CONFIGURATION ====================
@@ -100,6 +102,8 @@ def signup():
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
+    hashed_password = generate_password_hash(password)
+    
     level = data.get('level')
     subjects = ','.join(data.get('subjects', []))
 
@@ -112,7 +116,7 @@ def signup():
 
     cursor.execute(
         "INSERT INTO users (name, email, password, level, subjects) VALUES (?, ?, ?, ?, ?)",
-        (name, email, password, level, subjects)
+        (name, email, hashed_password, level, subjects)
     )
     conn.commit()
     conn.close()
@@ -128,18 +132,18 @@ def login():
     conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT name, email, level, subjects FROM users WHERE email=? AND password=?",
-        (email, password)
+        "SELECT name, email, password, level, subjects FROM users WHERE email=?",
+        (email,)
     )
     user = cursor.fetchone()
     conn.close()
 
-    if user:
+    if user and check_password_hash(user[2], password):
         user_data = {
             "name": user[0],
             "email": user[1],
-            "level": user[2],
-            "subjects": user[3].split(',') if user[3] else []
+            "level": user[3],
+            "subjects": user[4].split(',') if user[4] else []
         }
         session['user'] = user_data
         return jsonify({"success": True})
