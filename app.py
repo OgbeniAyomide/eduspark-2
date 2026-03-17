@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import sqlite3
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
 from datetime import datetime
 from flask_cors import CORS
 import google.generativeai as genai
