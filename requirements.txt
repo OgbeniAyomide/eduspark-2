@@ -2,6 +2,6 @@ flask
 flask_cors
 gunicorn
 Werkzeug>=2.3.8
-google-generativeai
+google-genai
 requests
 python-dotenv
