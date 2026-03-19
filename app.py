@@ -251,7 +251,7 @@ def start_tutor_session():
 
     try:
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-2.5-flash",
             contents=[
                 *history,
                 {"role": "user", "parts": [{"text": "Please start teaching the first section of the topic now."}]},
@@ -314,7 +314,7 @@ def send_tutor_message():
 
     try:
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-2.5-flash",
             contents=history,
         )
         ai_reply = response.text
