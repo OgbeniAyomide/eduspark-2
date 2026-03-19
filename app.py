@@ -4,7 +4,7 @@ import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask_cors import CORS
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 import os
 
@@ -24,8 +24,7 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Use 'gemini-1.5-flash' for speed and free tier, or 'gemini-1.5-pro' if available
-model = genai.GenerativeModel('gemini-2.5-flash')
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 
 # ==============================================================
