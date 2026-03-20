@@ -3,7 +3,21 @@ import sqlite3
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
-from flask_mail import Mail, Message
+
+# flask_mail is optional for local development; if missing, we log & skip send.
+try:
+    from flask_mail import Mail, Message
+except ModuleNotFoundError:
+    Mail = None
+
+    class Message:
+        def __init__(self, *args, **kwargs):
+            self.subject = kwargs.get('subject', '')
+            self.sender = kwargs.get('sender', '')
+            self.recipients = kwargs.get('recipients', [])
+            self.body = ''
+
+
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from google import genai
@@ -21,9 +35,16 @@ CORS(app)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USERNAME'] = 'akinrolayoayo@gmail.com'
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_PASSWORD'] = 'Donotuse24'
 
-mail=Mail(app)
+if Mail:
+    mail = Mail(app)
+else:
+    class _DummyMail:
+        def send(self, message):
+            print('INFO: flask_mail is not installed; email not sent:', message.body)
+
+    mail = _DummyMail()
 
 # ==================== GEMINI CONFIGURATION ====================
 
