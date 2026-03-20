@@ -1,5 +1,6 @@
 flask
 flask_cors
+Flask-Mail
 gunicorn
 Werkzeug>=2.3.8
 google-genai
