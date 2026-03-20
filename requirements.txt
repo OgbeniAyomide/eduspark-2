@@ -5,5 +5,6 @@ gunicorn
 Werkzeug>=2.3.8
 resend
 google-genai
+psycopg2-binary
 requests
 python-dotenv
