@@ -37,7 +37,7 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', 'akinrolayoayo@gmail.com')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')  # Set MAIL_PASSWORD in your .env file (use a Gmail App Password)
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
 
 if Mail:
     mail = Mail(app)
@@ -428,19 +428,22 @@ def get_user_sessions():
 
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
-    data = request.get_json(force=True, silent=True)
-    if not data or 'email' not in data:
-        return jsonify({"success": False, "message": "Email is required"}), 400
+    try:
+        data = request.get_json(force=True, silent=True)
+        if not data or 'email' not in data:
+            return jsonify({"success": False, "message": "Email is required"})
 
-    email = data.get('email')
+        email = data.get('email')
 
-    conn = sqlite3.connect('users.db')
-    cursor = conn.cursor()
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT email FROM users WHERE email=?", (email,))
+        user = cursor.fetchone()
 
-    cursor.execute("SELECT email FROM users WHERE email=?", (email,))
-    user=cursor.fetchone()
+        if not user:
+            conn.close()
+            return jsonify({"success": False, "message": "No account found with that email address."})
 
-    if user:
         token = secrets.token_urlsafe(32)
         expiry = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
         cursor.execute(
@@ -448,27 +451,24 @@ def forgot_password():
             (token, expiry, email),
         )
         conn.commit()
+        conn.close()
+
         reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
 
         msg = Message(
-            subject="Reset your password",
+            subject="Reset your EduSpark password",
             sender=app.config['MAIL_USERNAME'],
             recipients=[email],
         )
-        msg.body = f"Click the link to reset your password (valid for 15 minutes): {reset_link}"
+        msg.body = f"Click the link below to reset your password (valid for 15 minutes):\n\n{reset_link}\n\nIf you did not request this, ignore this email."
 
-        try:
-            mail.send(msg)
-        except Exception as e:
-            print(f"WARNING: Could not send reset email: {str(e)}")
-            conn.close()
-            return jsonify({"success": True, "message": "Reset link generated. Email send failed (check mail config)."})
+        mail.send(msg)
 
-        conn.close()
         return jsonify({"success": True, "message": "Password reset link sent to your email."})
 
-    conn.close()
-    return jsonify({"success": False, "message": "Email not found"}), 404
+    except Exception as e:
+        print(f"ERROR in forgot_password: {str(e)}")
+        return jsonify({"success": False, "message": f"Server error: {str(e)}"})
 
 
 @app.route('/api/reset-password/<token>', methods=['POST'])
