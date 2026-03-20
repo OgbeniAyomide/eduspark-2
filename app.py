@@ -414,8 +414,9 @@ def forgot_password():
             subject="Reset your password",
             sender=app.config['MAIL_USERNAME'],
             recipients=[email],
+        )
         
-        msg=   msg.body = f"""
+         msg.body = f"""
 You requested a password reset.
 
 Click the link below:
