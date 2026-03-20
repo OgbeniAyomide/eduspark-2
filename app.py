@@ -124,6 +124,16 @@ def dashboard():
     return render_template('index.html', user=user)
 
 
+@app.route('/forgot-password')
+def forgot_password_page():
+    return render_template('forgot.html')
+
+
+@app.route('/reset-password/<token>')
+def reset_password_page(token):
+    return render_template('reset.html', token=token)
+
+
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.get_json(force=True, silent=True)
@@ -393,9 +403,12 @@ def get_user_sessions():
     return jsonify([{"topic": s[0], "last_updated": str(s[1])} for s in sessions])
 
 
-@app.route('/api/forgot-password', methods=['GET', 'POST'])
+@app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
-    data=request.get_json(force=True,Silent=True)
+    data = request.get_json(force=True, silent=True)
+    if not data or 'email' not in data:
+        return jsonify({"success": False, "message": "Email is required"}), 400
+
     email = data.get('email')
 
     conn = sqlite3.connect('users.db')
@@ -425,7 +438,10 @@ def forgot_password():
         conn.close()
 
         return jsonify({"success": True, "message": "Password reset link sent to your email."})
-    
+
+    conn.close()
+    return jsonify({"success": False, "message": "Email not found"}), 404
+
 
 @app.route('/api/reset-password/<token>', methods=['POST'])
 def reset_password(token):

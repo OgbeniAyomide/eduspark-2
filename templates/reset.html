@@ -84,6 +84,14 @@
                     </div>
                 </div>
 
+                <div>
+                    <label class="block text-sm font-semibold text-gray-800 mb-2">Confirm Password</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                        <input type="password" id="confirmPassword" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="••••••••">
+                    </div>
+                </div>
+
                 <button onclick="handleReset()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition transform hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 duration-200 mt-6">
                     Reset Password
                 </button>
@@ -100,21 +108,27 @@
         }
 
         async function handleReset() {
-            const email = document.getElementById('resetEmail').value;
             const password = document.getElementById('resetPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const token = "{{ token }}";
 
-            if (!email || !password) {
+            if (!password || !confirmPassword) {
                 showError('Please fill in all fields');
                 return;
             }
 
+            if (password !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+
             try {
-                const response = await fetch('/api/reset-password', {
+                const response = await fetch(`/api/reset-password/${token}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ password, confirm_password: confirmPassword })
                 });
 
                 const data = await response.json();
