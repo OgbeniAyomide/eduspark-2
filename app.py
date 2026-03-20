@@ -393,9 +393,9 @@ def get_user_sessions():
     return jsonify([{"topic": s[0], "last_updated": str(s[1])} for s in sessions])
 
 
-@app.route('/forgot-password', methods=['GET', 'POST'])
+@app.route('/api/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
-    data=request.get_json()
+    data=request.get_json(force=True,Silent=True)
     email = data.get('email')
 
     conn = sqlite3.connect('users.db')
@@ -414,7 +414,7 @@ def forgot_password():
         conn.commit()
         reset_link=f"eduspark.up.railway.app/reset-password/{token}"
 
-        Message(
+        msg=Message(
             subject="Reset your password",
             sender=app.config['MAIL_USERNAME'],
             recipients=[email],
