@@ -418,25 +418,30 @@ def forgot_password():
     user=cursor.fetchone()
 
     if user:
-        token=secrets.token_urlsafe(32)
-        expiry=(datetime.utcnow() + timedelta(minutes=15)).isoformat()
+        token = secrets.token_urlsafe(32)
+        expiry = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
         cursor.execute(
             "UPDATE users SET reset_token=?, reset_token_expiry=? WHERE email=?",
             (token, expiry, email),
         )
         conn.commit()
-        reset_link=f"eduspark.up.railway.app/reset-password/{token}"
+        reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
 
-        msg=Message(
+        msg = Message(
             subject="Reset your password",
             sender=app.config['MAIL_USERNAME'],
             recipients=[email],
         )
-        
         msg.body = f"Click the link to reset your password (valid for 15 minutes): {reset_link}"
-        mail.send(msg)
-        conn.close()
 
+        try:
+            mail.send(msg)
+        except Exception as e:
+            print(f"WARNING: Could not send reset email: {str(e)}")
+            conn.close()
+            return jsonify({"success": True, "message": "Reset link generated. Email send failed (check mail config)."})
+
+        conn.close()
         return jsonify({"success": True, "message": "Password reset link sent to your email."})
 
     conn.close()
