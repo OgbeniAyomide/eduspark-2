@@ -4,18 +4,7 @@ import json
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 
-# flask_mail is optional for local development; if missing, we log & skip send.
-try:
-    from flask_mail import Mail, Message
-except ModuleNotFoundError:
-    Mail = None
-
-    class Message:
-        def __init__(self, *args, **kwargs):
-            self.subject = kwargs.get('subject', '')
-            self.sender = kwargs.get('sender', '')
-            self.recipients = kwargs.get('recipients', [])
-            self.body = ''
+import resend
 
 
 from datetime import datetime, timedelta
@@ -32,21 +21,8 @@ app.secret_key = "fhdsshdhfskshfdskshffjjshhfsjwwjffhsahdhfeajoffkdmmvbvbsv"
 CORS(app)
 
 
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', 'akinrolayoayo@gmail.com')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
-
-if Mail:
-    mail = Mail(app)
-else:
-    class _DummyMail:
-        def send(self, message):
-            print('INFO: flask_mail is not installed; email not sent:', message.body)
-
-    mail = _DummyMail()
+resend.api_key = os.getenv('RESEND_API_KEY', '')
+MAIL_FROM = os.getenv('MAIL_FROM', 'onboarding@resend.dev')
 
 # ==================== GEMINI CONFIGURATION ====================
 
@@ -98,7 +74,7 @@ def init_db():
         )
     ''')
 
-    # Add reset_token columns if they don't exist (for existing databases)
+    # Migrate existing databases that may be missing these columns
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
     except Exception:
@@ -465,14 +441,12 @@ def forgot_password():
 
         reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
 
-        msg = Message(
-            subject="Reset your EduSpark password",
-            sender=app.config['MAIL_USERNAME'],
-            recipients=[email],
-        )
-        msg.body = f"Click the link below to reset your password (valid for 15 minutes):\n\n{reset_link}\n\nIf you did not request this, ignore this email."
-
-        mail.send(msg)
+        resend.Emails.send({
+            "from": MAIL_FROM,
+            "to": email,
+            "subject": "Reset your EduSpark password",
+            "text": f"Click the link below to reset your password (valid for 15 minutes):\n\n{reset_link}\n\nIf you did not request this, ignore this email."
+        })
 
         return jsonify({"success": True, "message": "Password reset link sent to your email."})
 
