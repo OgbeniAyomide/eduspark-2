@@ -98,6 +98,16 @@ def init_db():
         )
     ''')
 
+    # Add reset_token columns if they don't exist (for existing databases)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT")
+    except Exception:
+        pass
+
     # Tutor sessions table (stores Gemini-compatible history)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tutor_sessions (
