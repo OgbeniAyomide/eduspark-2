@@ -126,7 +126,9 @@ def dashboard():
 
 @app.route('/api/signup', methods=['POST'])
 def signup():
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return jsonify({"success": False, "message": "Invalid request format"}), 400
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
@@ -153,7 +155,9 @@ def signup():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return jsonify({"success": False, "message": "Invalid request format"}), 400
     email = data.get('email')
     password = data.get('password')
 
