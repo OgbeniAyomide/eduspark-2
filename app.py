@@ -416,17 +416,7 @@ def forgot_password():
             recipients=[email],
         )
         
-         msg.body = f"""
-You requested a password reset.
-
-Click the link below:
-{reset_link}
-
-This link expires in 15 minutes.
-
-If you didn't request this, please ignore this email.Eduspark AI Tutor
-            """
-        )
+        msg.body = f"Click the link to reset your password (valid for 15 minutes): {reset_link}"
         mail.send(msg)
         conn.close()
 
