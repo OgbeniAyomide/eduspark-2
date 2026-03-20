@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Portal - Reset Password</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen flex items-center justify-center p-4">
+    <style>
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .input-field {
+            transition: all 0.3s ease;
+        }
+        
+        .input-field:focus {
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            transform: translateY(-2px);
+        }
+    </style>
+    
+    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-md w-full border border-gray-100 animate-fade-in-up">
+        <div class="pt-12 pb-8 px-8 text-center">
+            <div class="bg-blue-600 rounded-2xl text-white text-4xl mb-6 inline-flex items-center justify-center animate-slide-in w-16 h-16">
+                <span class="flex items-center justify-center"><i class="fa-solid fa-lock"></i></span>
+            </div>
+            <h1 class="text-2xl font-extrabold text-gray-900">Reset Password</h1>
+            <p class="text-sm text-gray-600 mt-1">Enter your new password</p>
+        </div>
+        <!-- Form Container -->
+        <div class="p-8">
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg flex items-center gap-2 animate-fade-in-up">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorText"></span>
+            </div>
+
+            <!-- Reset Form -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-800 mb-2">Email Address</label>
+                    <div class="relative">
+                        <i class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                        <input type="email" id="resetEmail" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="your@email.com">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-800 mb-2">New Password</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
+                        <input type="password" id="resetPassword" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="••••••••">
+                    </div>
+                </div>
+
+                <button onclick="handleReset()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition transform hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 duration-200 mt-6">
+                    Reset Password
+                </button>
+            </div>
+        </div>
+    </div>
+
+   <script>
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        async function handleReset() {
+            const email = document.getElementById('resetEmail').value;
+            const password = document.getElementById('resetPassword').value;
+
+            if (!email || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.href = '/login';
+                } else {
+                    showError(data.message);
+                }
+            } catch (error) {
+                showError('An error occurred. Please try again.');
+            }
+        }
+
+        // Allow Enter key to submit
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleReset();
+            }
+        });
+   </script>
+</body>
+</html>

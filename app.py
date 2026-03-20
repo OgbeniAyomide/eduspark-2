@@ -3,7 +3,8 @@ import sqlite3
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
-from datetime import datetime
+from flask_mail import Mail, Message
+from datetime import datetime, timedelta
 from flask_cors import CORS
 from google import genai
 from dotenv import load_dotenv
@@ -16,6 +17,14 @@ app = Flask(__name__)
 app.secret_key = "fhdsshdhfskshfdskshffjjshhfsjwwjffhsahdhfeajoffkdmmvbvbsv"
 CORS(app)
 
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USERNAME'] = 'akinrolayoayo@gmail.com'
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+
+mail=Mail(app)
+
 # ==================== GEMINI CONFIGURATION ====================
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -24,6 +33,27 @@ if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable is not set. Please check your .env file.")
 client = genai.Client(api_key=GEMINI_API_KEY)
 
+flash_model= "gemini-2.5-flash"
+flash_lite_model= "gemini-2.5-flash-lite"
+
+def generate_with_fallback(contents):
+    try:
+        response = client.models.generate_content(
+            model=flash_model,
+            contents=contents,
+        )
+        return response.text
+    except Exception as e:
+        print(f"Error with {flash_model}: {str(e)}. Falling back to {flash_lite_model}.")
+        try:
+            response = client.models.generate_content(
+                model=flash_lite_model,
+                contents=contents,
+            )
+            return response.text
+        except Exception as e2:
+            print("Flash LITE FAILED", e2)
+            return"Service is currently unavailable. Please try again later.", "none"
 # ==============================================================
 
 def init_db():
@@ -38,7 +68,10 @@ def init_db():
             email TEXT UNIQUE,
             password TEXT,
             level TEXT,
-            subjects TEXT
+            subjects TEXT,
+            reset_token TEXT,
+            reset_token_expiry TEXT
+
         )
     ''')
 
@@ -250,14 +283,10 @@ def start_tutor_session():
     conn.close()
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[
-                *history,
-                {"role": "user", "parts": [{"text": "Please start teaching the first section of the topic now."}]},
-            ],
-        )
-        ai_message = response.text
+        ai_message = generate_with_fallback([
+            *history,
+            {"role": "user", "parts": [{"text": "Please start teaching the first section of the topic now."}]}
+            ])
 
         # Split the response into multiple messages if it contains breaks
         messages = [msg.strip() for msg in ai_message.split('---MESSAGE_BREAK---') if msg.strip()]
@@ -313,11 +342,8 @@ def send_tutor_message():
     history.append({"role": "user", "parts": [{"text": message}]})
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=history,
-        )
-        ai_reply = response.text
+        ai_reply=generate_with_fallback(history)
+
 
         # Split the response into multiple messages if it contains breaks
         messages = [msg.strip() for msg in ai_reply.split('---MESSAGE_BREAK---') if msg.strip()]
@@ -365,11 +391,88 @@ def get_user_sessions():
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
-    if request.method=='POST':
-        return render_template('forgot.html')
+    data=request.get_json()
+    email = data.get('email')
 
-    email= request.form.get('email')
-    user= User.query_filter(email=email).first()
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT email FROM users WHERE email=?", (email,))
+    user=cursor.fetchone()
+
+    if user:
+        token=secrets.token_urlsafe(32)
+        expiry=(datetime.utcnow() + timedelta(minutes=15)).isoformat()
+        cursor.execute(
+            "UPDATE users SET reset_token=?, reset_token_expiry=? WHERE email=?",
+            (token, expiry, email),
+        )
+        conn.commit()
+        reset_link=f"eduspark.up.railway.app/reset-password/{token}"
+
+        Message(
+            subject="Reset your password",
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[email],
+        
+        msg=   msg.body = f"""
+You requested a password reset.
+
+Click the link below:
+{reset_link}
+
+This link expires in 15 minutes.
+
+If you didn't request this, please ignore this email.Eduspark AI Tutor
+            """
+        )
+        mail.send(msg)
+        conn.close()
+
+        return jsonify({"success": True, "message": "Password reset link sent to your email."})
+    
+
+@app.route('/api/reset-password/<token>', methods=['POST'])
+def reset_password(token):
+    data = request.get_json()
+    password = data.get('password')
+    confirm = data.get('confirm_password')
+
+    if password != confirm:
+        return jsonify({"success": False, "message": "Passwords do not match"})
+
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, reset_token_expiry FROM users WHERE reset_token=?",
+        (token,)
+    )
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({"success": False, "message": "Invalid token"})
+
+    expiry = user[1]
+
+    if not expiry or datetime.fromisoformat(expiry) < datetime.utcnow():
+        conn.close()
+        return jsonify({"success": False, "message": "Token expired"})
+
+    hashed_password = generate_password_hash(password)
+
+    cursor.execute("""
+        UPDATE users 
+        SET password=?, reset_token=NULL, reset_token_expiry=NULL 
+        WHERE id=?
+    """, (hashed_password, user[0]))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True, "message": "Password reset successful"})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
