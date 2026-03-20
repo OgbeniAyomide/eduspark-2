@@ -34,8 +34,10 @@ CORS(app)
 
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
-app.config['MAIL_USERNAME'] = 'akinrolayoayo@gmail.com'
-app.config['MAIL_PASSWORD'] = 'Donotuse24'
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', 'akinrolayoayo@gmail.com')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')  # Set MAIL_PASSWORD in your .env file (use a Gmail App Password)
 
 if Mail:
     mail = Mail(app)
