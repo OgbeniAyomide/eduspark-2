@@ -134,7 +134,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    window.location.href = '/login';
+                    window.location.href = '/auth';
                 } else {
                     showError(data.message);
                 }
