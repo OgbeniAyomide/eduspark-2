@@ -1,13 +1,13 @@
 {
-    "name": "QoreStudy",
-    "short_name": "QoreStudy",
-    "start_url": "eduspark.up.railway.app",
+    "name": "Quevra",
+    "short_name": "Quevra",
+    "start_url": "quevra.up.railway.app",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "blue",
     "icons": [
         {
-            "src": "/static/QoreStudy.png",
+            "src": "/images/QoreStudy.png",
             "sizes": "192x192",
             "type": "image/png"
         }
