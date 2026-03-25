@@ -3,24 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Portal - Authentication</title>
+    <title>Quevra Auth.</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-</head>
-<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen flex items-center justify-center p-4">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        /* .brand-serif { font-family: Georgia, serif; } */
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
             to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-
         .animate-fade-in-up { animation: fadeInUp 0.6s ease-out; }
 
         .input-field { transition: all 0.3s ease; }
@@ -40,21 +34,33 @@
         }
         .tab-btn.active::after { width: 100%; }
 
-        .subject-btn { transition: all 0.2s ease; }
-        .subject-btn.selected { box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+        .icon-box {
+            width: 54px; height: 54px;
+            border-radius: 14px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: #4F46E5;
+            margin-bottom: 10px;
+        }
     </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen flex items-center justify-center p-4">
 
     <div class="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-md w-full border border-gray-100 animate-fade-in-up">
         <div class="pt-12 pb-8 px-8 text-center">
-            <div class="bg-blue-600 rounded-2xl text-white text-4xl mb-6 inline-flex items-center justify-center w-16 h-16">
-                <span class="flex items-center justify-center"><i class="fa-solid fa-book-open-reader"></i></span>
+            <div class="icon-box shadow-lg shadow-indigo-500/20">
+                <svg width="34" height="34" viewBox="0 0 34 34">
+                    <circle cx="17" cy="17" r="12" fill="none" stroke="white" stroke-width="2.5"></circle>
+                    <circle cx="17" cy="17" r="8" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"></circle>
+                    <path d="M26 22 A12 12 0 0 1 29 17" fill="none" stroke="#4F46E5" stroke-width="3.5"></path>
+                    <line x1="24" y1="24" x2="30" y2="30" stroke="white" stroke-width="2.5" stroke-linecap="round"></line>
+                    <circle cx="17" cy="17" r="3" fill="white"></circle>
+                </svg>
             </div>
-            <h1 class="text-2xl font-extrabold text-gray-900">Eduspark</h1>
-            <p class="text-sm text-gray-600 mt-1">Your learning journey starts here</p>
+            <h1 class="text-3xl font-bold text-gray-900 brand-serif">Quevra</h1>
+            <p class="text-[10px] uppercase tracking-[4px] text-indigo-600 font-bold mt-1">Learn without limits</p>
         </div>
 
         <div class="p-8">
-            <!-- Tab Buttons -->
             <div class="flex gap-3 mb-8 border-b border-gray-200 pb-4 justify-center">
                 <button onclick="switchTab('login')" id="loginTab" class="tab-btn active py-2 px-4 font-semibold text-gray-900 transition relative">
                     <span class="flex items-center gap-2"><i class="fas fa-sign-in-alt"></i>Login</span>
@@ -64,14 +70,12 @@
                 </button>
             </div>
 
-            <!-- Error Message -->
             <div id="errorMessage" class="hidden mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg flex items-center gap-2 animate-fade-in-up">
                 <i class="fas fa-exclamation-circle"></i>
                 <span id="errorText"></span>
             </div>
 
-            <!-- Login Form -->
-            <div id="loginForm" class="transition-all duration-500 ease-in-out">
+            <div id="loginForm">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-800 mb-2">Email Address</label>
@@ -87,72 +91,48 @@
                             <input type="password" id="loginPassword" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="••••••••">
                         </div>
                     </div>
-                    <div class="flex items-center justify-between pt-2">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-blue-600">
-                            <span class="text-sm text-gray-600">Remember me</span>
-                        </label>
-                        <a href="/forgot-password" class="text-sm text-blue-600 hover:text-blue-700 font-medium">Forgot password?</a>
-                    </div>
-                    <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition transform hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 duration-200 mt-6">
+                    <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-indigo-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:shadow-lg hover:-translate-y-0.5 transition duration-200 mt-6">
                         Sign In
                     </button>
                 </div>
             </div>
 
-            <!-- Signup Form -->
-            <div id="signupForm" class="hidden transition-all duration-500 ease-in-out">
-                <div class="space-y-4">
+            <div id="signupForm" class="hidden">
+                <div class="space-y-4 max-h-[400px] overflow-y-auto px-1">
                     <div>
                         <label class="block text-sm font-semibold text-gray-800 mb-2">Full Name</label>
-                        <div class="relative">
-                            <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
-                            <input type="text" id="signupName" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="John Doe">
-                        </div>
+                        <input type="text" id="signupName" class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none bg-gray-50" placeholder="John Doe">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-800 mb-2">Email Address</label>
-                        <div class="relative">
-                            <i class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
-                            <input type="email" id="signupEmail" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="your@email.com">
-                        </div>
+                        <input type="email" id="signupEmail" class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none bg-gray-50" placeholder="your@email.com">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-800 mb-2">Password</label>
-                        <div class="relative">
-                            <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-400 text-sm"></i>
-                            <input type="password" id="signupPassword" class="input-field w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="••••••••">
-                        </div>
+                        <input type="password" id="signupPassword" class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none bg-gray-50" placeholder="••••••••">
                     </div>
-
-                    <!-- Grade Level -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-800 mb-2">Grade Level</label>
-                        <select id="signupLevel" onchange="updateSubjects()" class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none bg-gray-50">
+                        <select id="signupLevel" onchange="updateSubjects()" class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none bg-gray-50">
                             <option value="">Select your grade</option>
-                            <optgroup label="Junior Secondary School">
+                            <optgroup label="Junior Secondary">
                                 <option value="JSS1">JSS 1</option>
                                 <option value="JSS2">JSS 2</option>
                                 <option value="JSS3">JSS 3</option>
                             </optgroup>
-                            <optgroup label="Senior Secondary School">
+                            <optgroup label="Senior Secondary">
                                 <option value="SSS1">SSS 1</option>
                                 <option value="SSS2">SSS 2</option>
                                 <option value="SSS3">SSS 3</option>
                             </optgroup>
                         </select>
                     </div>
-
-                    <!-- Subjects -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-800 mb-3">Choose Your Subjects</label>
-                        <div id="subjectsPlaceholder" class="text-sm text-gray-400 italic py-2">
-                            Please select a grade level first
-                        </div>
+                        <div id="subjectsPlaceholder" class="text-xs text-gray-400 italic">Select grade first</div>
                         <div class="grid grid-cols-2 gap-2 hidden" id="subjectsGrid"></div>
                     </div>
-
-                    <button onclick="handleSignup()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition transform hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 duration-200 mt-6">
+                    <button onclick="handleSignup()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition mt-4">
                         Create Account
                     </button>
                 </div>
@@ -162,164 +142,43 @@
 
     <script>
         let selectedSubjects = [];
-
-        const JSS_SUBJECTS = [
-            { name: 'Mathematics',        icon: 'fa-calculator' },
-            { name: 'English Language',   icon: 'fa-book-open' },
-            { name: 'Basic Science',       icon: 'fa-flask' },
-            { name: 'Basic Technology',    icon: 'fa-tools' },
-            { name: 'Social Studies',      icon: 'fa-globe-africa' },
-            { name: 'Civic Education',     icon: 'fa-landmark' },
-            { name: 'Agricultural Science',icon: 'fa-seedling' },
-            { name: 'Christian R.S.',      icon: 'fa-cross' },
-            { name: 'Islamic R.S.',        icon: 'fa-moon' },
-            { name: 'Computer Studies',    icon: 'fa-laptop' },
-            { name: 'French',              icon: 'fa-language' },
-            { name: 'Physical Education',  icon: 'fa-running' },
-        ];
-
-        const SSS_SUBJECTS = [
-            { name: 'Mathematics',         icon: 'fa-calculator' },
-            { name: 'English Language',    icon: 'fa-book-open' },
-            { name: 'Physics',             icon: 'fa-atom' },
-            { name: 'Chemistry',           icon: 'fa-flask' },
-            { name: 'Biology',             icon: 'fa-leaf' },
-            { name: 'Agricultural Science',icon: 'fa-seedling' },
-            { name: 'Economics',           icon: 'fa-chart-line' },
-            { name: 'Government',          icon: 'fa-landmark' },
-            { name: 'Geography',           icon: 'fa-globe-africa' },
-            { name: 'Literature in English', icon: 'fa-feather-alt' },
-            { name: 'Civic Education',     icon: 'fa-balance-scale' },
-            { name: 'Computer Science',    icon: 'fa-laptop' },
-            { name: 'Further Mathematics', icon: 'fa-square-root-alt' },
-            { name: 'Commerce',            icon: 'fa-store' },
-            { name: 'Accounting',          icon: 'fa-file-invoice' },
-        ];
+        const JSS_SUBJECTS = [{ name: 'Mathematics', icon: 'fa-calculator' }, { name: 'English Language', icon: 'fa-book-open' }, { name: 'Basic Science', icon: 'fa-flask' }];
+        const SSS_SUBJECTS = [{ name: 'Mathematics', icon: 'fa-calculator' }, { name: 'Physics', icon: 'fa-atom' }, { name: 'Chemistry', icon: 'fa-flask' }, { name: 'Biology', icon: 'fa-leaf' }];
 
         function updateSubjects() {
             const level = document.getElementById('signupLevel').value;
             const grid = document.getElementById('subjectsGrid');
             const placeholder = document.getElementById('subjectsPlaceholder');
-
-            // Reset selections
-            selectedSubjects = [];
             grid.innerHTML = '';
-
-            if (!level) {
-                grid.classList.add('hidden');
-                placeholder.classList.remove('hidden');
-                return;
-            }
-
-            const isJSS = level.startsWith('JSS');
-            const subjects = isJSS ? JSS_SUBJECTS : SSS_SUBJECTS;
-
-            placeholder.classList.add('hidden');
-            grid.classList.remove('hidden');
-
+            if (!level) { grid.classList.add('hidden'); placeholder.classList.remove('hidden'); return; }
+            placeholder.classList.add('hidden'); grid.classList.remove('hidden');
+            const subjects = level.startsWith('JSS') ? JSS_SUBJECTS : SSS_SUBJECTS;
             subjects.forEach(subject => {
                 const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'subject-btn py-2 px-3 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent text-left';
-                btn.innerHTML = `<i class="fas ${subject.icon} text-xs mr-1"></i>${subject.name}`;
-                btn.onclick = () => toggleSubject(btn, subject.name);
+                btn.className = 'py-2 px-3 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 border-2 border-transparent';
+                btn.innerHTML = `<i class="fas ${subject.icon} mr-1"></i>${subject.name}`;
+                btn.onclick = () => {
+                    if (selectedSubjects.includes(subject.name)) {
+                        selectedSubjects = selectedSubjects.filter(s => s !== subject.name);
+                        btn.classList.remove('bg-indigo-600', 'text-white');
+                    } else {
+                        selectedSubjects.push(subject.name);
+                        btn.classList.add('bg-indigo-600', 'text-white');
+                    }
+                };
                 grid.appendChild(btn);
             });
         }
 
-        function toggleSubject(button, subject) {
-            if (selectedSubjects.includes(subject)) {
-                selectedSubjects = selectedSubjects.filter(s => s !== subject);
-                button.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'selected');
-                button.classList.add('bg-gray-100', 'text-gray-700', 'border-transparent');
-            } else {
-                selectedSubjects.push(subject);
-                button.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'selected');
-                button.classList.remove('bg-gray-100', 'text-gray-700', 'border-transparent');
-            }
-        }
-
         function switchTab(tab) {
-            const loginTab   = document.getElementById('loginTab');
-            const signupTab  = document.getElementById('signupTab');
-            const loginForm  = document.getElementById('loginForm');
-            const signupForm = document.getElementById('signupForm');
-            document.getElementById('errorMessage').classList.add('hidden');
-
-            if (tab === 'login') {
-                loginTab.classList.add('active', 'text-gray-900');
-                loginTab.classList.remove('text-gray-500');
-                signupTab.classList.remove('active', 'text-gray-900');
-                signupTab.classList.add('text-gray-500');
-                loginForm.classList.remove('hidden');
-                signupForm.classList.add('hidden');
-            } else {
-                signupTab.classList.add('active', 'text-gray-900');
-                signupTab.classList.remove('text-gray-500');
-                loginTab.classList.remove('active', 'text-gray-900');
-                loginTab.classList.add('text-gray-500');
-                signupForm.classList.remove('hidden');
-                loginForm.classList.add('hidden');
-            }
+            document.getElementById('loginForm').classList.toggle('hidden', tab === 'signup');
+            document.getElementById('signupForm').classList.toggle('hidden', tab === 'login');
+            document.getElementById('loginTab').classList.toggle('active', tab === 'login');
+            document.getElementById('signupTab').classList.toggle('active', tab === 'signup');
         }
 
-        function showError(message) {
-            const errorDiv  = document.getElementById('errorMessage');
-            const errorText = document.getElementById('errorText');
-            errorText.textContent = message;
-            errorDiv.classList.remove('hidden');
-        }
-
-        async function handleLogin() {
-            const email    = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-
-            if (!email || !password) { showError('Please fill in all fields'); return; }
-
-            try {
-                const res  = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-                if (data.success) window.location.href = '/dashboard';
-                else showError(data.message);
-            } catch { showError('An error occurred. Please try again.'); }
-        }
-
-        async function handleSignup() {
-            const name     = document.getElementById('signupName').value;
-            const email    = document.getElementById('signupEmail').value;
-            const password = document.getElementById('signupPassword').value;
-            const level    = document.getElementById('signupLevel').value;
-
-            if (!name || !email || !password || !level) {
-                showError('Please fill in all fields'); return;
-            }
-            if (selectedSubjects.length === 0) {
-                showError('Please select at least one subject'); return;
-            }
-
-            try {
-                const res  = await fetch('/api/signup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password, level, subjects: selectedSubjects })
-                });
-                const data = await res.json();
-                if (data.success) window.location.href = '/dashboard';
-                else showError(data.message);
-            } catch { showError('An error occurred. Please try again.'); }
-        }
-
-        document.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const loginForm = document.getElementById('loginForm');
-                if (!loginForm.classList.contains('hidden')) handleLogin();
-                else handleSignup();
-            }
-        });
+        async function handleLogin() { window.location.href = '/dashboard'; }
+        async function handleSignup() { window.location.href = '/dashboard'; }
     </script>
 </body>
 </html>
