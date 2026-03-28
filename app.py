@@ -1,6 +1,4 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-import psycopg2
-import psycopg2.extras
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
@@ -287,33 +285,37 @@ def start_tutor_session():
     if not user_id:
         return jsonify({"success": False, "message": "User not found"}), 404
 
-    name  = session['user']['name']
-    level = session['user']['level']
-
     try:
-        conn     = get_db()
-        existing = conn.execute(
-            "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?",
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute(
+            "SELECT id, history FROM tutor_sessions WHERE user_id = %s AND topic = %s",
             (user_id, topic)
-        ).fetchone()
+        )
+        existing = cur.fetchone()
 
         if existing:
-            history    = json.loads(existing[1])
-            session_id = existing[0]
+            history    = json.loads(existing["history"])
+            session_id = existing["id"]
         else:
             system_instruction = (
-                f"You are Quevra AI, an advanced academic assistant designed to teach students effectively. "
-                f"You are teaching {topic} to {name}, who is currently at {level}. "
-                "Always introduce yourself as Quevra AI and greet the student by name at the start of each new session. "
-                "Quevra follows the Nigerian secondary school structure: JSS1, JSS2, JSS3, SSS1, SSS2, SSS3. "
-                "Align all explanations with WAEC, NECO, and GCE standards. "
+                f"You are EduSpark AI, an intelligent tutor designed to teach secondary school students from Grade 7 to Grade 12. "
+                f"You are currently helping a student learn about {topic}. "
+                "EduSpark follows the Nigerian secondary school structure. "
+                "Grade 7 = JSS1, Grade 8 = JSS2, Grade 9 = JSS3, Grade 10 = SS1, Grade 11 = SS2, Grade 12 = SS3. "
                 "Always adjust your explanations to match the student's level. "
-                "You teach: Mathematics, English Language, Basic Science, Basic Technology, Physics, Chemistry, "
+                "You teach subjects including Mathematics, English Language, Basic Science, Basic Technology, Physics, Chemistry, "
                 "Biology, Agricultural Science, Economics, Government, Geography, Civic Education, Social Studies, and Literature in English. "
-                "Teaching structure: 1. Definition  2. Key Concepts  3. Examples  4. Table if applicable  "
-                "5. Visual Explanation if applicable  6. Real-life Applications  7. Simple Summary. "
-                "Use clear headings, bullet points, and avoid long paragraphs. "
-                "Teach like a supportive, professional teacher — clear, structured, and engaging. "
+                "Your explanations must always be appropriate for secondary school students, clear, structured, and educational. "
+                "Teach like a supportive teacher, not a search engine. Always prioritize understanding over just giving answers. "
+                "Use simple language suitable for students aged 11-18. Break complex ideas into smaller steps. "
+                "When explaining a concept: First explain simply, then give a real-life example, then provide a key takeaway. "
+                "When solving problems: Identify the concept, show step-by-step solution, give the final answer, then give a practice question. "
+                "For definitions: provide definition, short explanation, and an example. "
+                "For summaries: give a short summary, bullet-point key points, and one review question. "
+                "For practice/quiz: generate grade-appropriate questions, prefer multiple-choice, provide answers separately. "
+                "Never give only the final answer without explanation. "
+                "Keep tone friendly, encouraging, and educational. Avoid jargon. "
                 "Break teaching into exactly 3 smaller messages per concept. Each message 6-7 lines max. "
                 "Use '---MESSAGE_BREAK---' between each message. "
                 "After every 3 messages, ask if the student understands. "
@@ -326,14 +328,11 @@ def start_tutor_session():
                 {"role": "model", "parts": [{"text": "Understood! I'll guide you step by step. Let's begin with the first section."}]},
             ]
 
-            conn.execute(
-                "INSERT INTO tutor_sessions (user_id, topic, history) VALUES (?, ?, ?)",
+            cur.execute(
+                "INSERT INTO tutor_sessions (user_id, topic, history) VALUES (%s, %s, %s) RETURNING id",
                 (user_id, topic, json.dumps(history))
             )
-            conn.commit()
-            session_id = conn.execute(
-                "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-            ).fetchone()[0]
+            session_id = cur.fetchone()["id"]
 
         conn.commit()
 
@@ -354,6 +353,8 @@ def start_tutor_session():
             (json.dumps(history), session_id)
         )
         conn.commit()
+        cur.close(); conn.close()
+
         return jsonify({"success": True, "messages": messages, "topic": topic})
     except Exception as e:
         print(f"Tutor start error: {e}")
