@@ -98,7 +98,7 @@ def get_current_user_id():
 def index():
     return redirect(url_for('landing'))
 
-@app.route('/landing)
+@app.route('/landing')
 def landing():
     return render_template('landing.html')
                
