@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quevra | AI-Powered Learning for Nigerian Students</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%233713EC'/><text y='75' x='50' text-anchor='middle' font-size='65' font-family='serif'>🎓</text></svg>"/>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%233713EC'/%3E%3Ctext y='72' x='50' text-anchor='middle' font-size='58' font-family='serif'%3E%F0%9F%8E%93%3C/text%3E%3C/svg%3E"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/SplitText.min.js"></script>
+
+<style>
+  :root {
+    --primary: #3713EC;
+    --primary-dark: #2400b4;
+    --tertiary: #42009f;
+    --navy: #1A1A2E;
+    --surface: #fcf8ff;
+    --secondary: #5d5c74;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--surface);
+    color: var(--navy);
+    overflow-x: hidden;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* ── Nav ── */
+  .nav-glass {
+    background: rgba(252, 248, 255, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(55, 19, 236, 0.06);
+  }
+
+  /* ── Hero gradient orbs ── */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .orb-1 {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(55,19,236,0.18) 0%, transparent 70%);
+    top: -200px; right: -100px;
+  }
+  .orb-2 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(66,0,159,0.12) 0%, transparent 70%);
+    bottom: -100px; left: -100px;
+  }
+  .orb-3 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(55,19,236,0.1) 0%, transparent 70%);
+    top: 50%; left: 40%;
+  }
+
+  /* ── Hero badge ── */
+  .hero-badge {
+    background: linear-gradient(135deg, rgba(55,19,236,0.08), rgba(66,0,159,0.06));
+    border: 1px solid rgba(55,19,236,0.2);
+    backdrop-filter: blur(8px);
+  }
+
+  /* ── Gradient text ── */
+  .grad-text {
+    background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 50%, var(--tertiary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── CTA Buttons ── */
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), #5b21c4);
+    box-shadow: 0 8px 32px rgba(55,19,236,0.35);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .btn-primary:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 16px 40px rgba(55,19,236,0.45);
+  }
+  .btn-secondary {
+    background: rgba(55,19,236,0.06);
+    border: 1.5px solid rgba(55,19,236,0.15);
+    transition: all 0.3s ease;
+  }
+  .btn-secondary:hover {
+    background: rgba(55,19,236,0.1);
+    border-color: rgba(55,19,236,0.3);
+    transform: translateY(-2px);
+  }
+
+  /* ── Hero image ── */
+  .hero-img-wrap {
+    position: relative;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 40px 80px rgba(26,26,46,0.2), 0 0 0 1px rgba(55,19,236,0.08);
+  }
+  .hero-img-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(26,26,46,0.5) 0%, transparent 60%);
+  }
+
+  /* ── Floating badge ── */
+  .float-badge {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 20px 60px rgba(26,26,46,0.15);
+    animation: floatY 4s ease-in-out infinite;
+  }
+  @keyframes floatY {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-10px); }
+  }
+
+  /* ── Stat badge ── */
+  .stat-badge {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 12px 40px rgba(26,26,46,0.12);
+    animation: floatY 5s ease-in-out infinite reverse;
+  }
+
+  /* ── Feature cards ── */
+  .feat-card {
+    background: #fff;
+    border: 1px solid rgba(55,19,236,0.06);
+    box-shadow: 0 4px 24px rgba(26,26,46,0.04);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .feat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 60px rgba(26,26,46,0.1);
+    border-color: rgba(55,19,236,0.12);
+  }
+
+  .feat-card-gradient {
+    background: linear-gradient(135deg, var(--primary) 0%, #5b21c4 100%);
+    box-shadow: 0 20px 60px rgba(55,19,236,0.3);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .feat-card-gradient:hover {
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 32px 80px rgba(55,19,236,0.4);
+  }
+
+  /* ── Icon wrapper ── */
+  .icon-wrap {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Step circles ── */
+  .step-circle {
+    width: 72px; height: 72px;
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 900;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .step-circle:hover { transform: scale(1.1) rotate(-3deg); }
+
+  /* ── Step connector ── */
+  .step-connector {
+    position: absolute;
+    top: 36px;
+    left: calc(50% + 36px);
+    width: calc(100% - 72px);
+    height: 2px;
+    background: linear-gradient(90deg, rgba(55,19,236,0.3), rgba(66,0,159,0.1));
+    z-index: 0;
+  }
+
+  /* ── Subject cards ── */
+  .subject-card {
+    background: #fff;
+    border: 1px solid rgba(55,19,236,0.06);
+    border-radius: 24px;
+    transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    cursor: pointer;
+  }
+  .subject-card:hover {
+    background: linear-gradient(135deg, rgba(55,19,236,0.05), rgba(91,33,196,0.05));
+    border-color: rgba(55,19,236,0.2);
+    transform: translateY(-8px) scale(1.03);
+    box-shadow: 0 16px 40px rgba(55,19,236,0.12);
+  }
+  .subject-card:hover .subj-icon {
+    transform: scale(1.2) rotate(-5deg);
+  }
+  .subj-icon { transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+
+  /* ── Testimonial cards ── */
+  .testi-card {
+    background: #fff;
+    border: 1px solid rgba(55,19,236,0.06);
+    box-shadow: 0 4px 24px rgba(26,26,46,0.04);
+    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .testi-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 60px rgba(26,26,46,0.1);
+    border-color: rgba(55,19,236,0.1);
+  }
+
+  /* ── CTA Banner ── */
+  .cta-banner {
+    background: linear-gradient(135deg, var(--navy) 0%, #0d0d1a 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(55,19,236,0.3) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 50%, rgba(91,33,196,0.2) 0%, transparent 60%);
+  }
+
+  /* ── Section headers ── */
+  .section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    background: rgba(55,19,236,0.07);
+    border: 1px solid rgba(55,19,236,0.15);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--primary);
+  }
+
+  /* ── Progress bar animation ── */
+  .progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6));
+    border-radius: 100px;
+    width: 0%;
+    transition: width 1.5s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── Mobile bottom nav ── */
+  .mobile-nav {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(55,19,236,0.08);
+    box-shadow: 0 -4px 40px rgba(26,26,46,0.1);
+  }
+
+  /* ── Scroll fade-up (GSAP handles actual animation) ── */
+  .reveal { opacity: 0; transform: translateY(40px); }
+  .reveal-left { opacity: 0; transform: translateX(-40px); }
+  .reveal-right { opacity: 0; transform: translateX(40px); }
+  .reveal-scale { opacity: 0; transform: scale(0.9); }
+
+  /* ── Marquee ── */
+  .marquee-track {
+    display: flex;
+    gap: 16px;
+    animation: marquee 25s linear infinite;
+    width: max-content;
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .marquee-wrap { overflow: hidden; }
+  .marquee-wrap:hover .marquee-track { animation-play-state: paused; }
+
+  /* ── Nav link underline ── */
+  .nav-link {
+    position: relative;
+    transition: color 0.2s;
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 0;
+    width: 0; height: 2px;
+    background: var(--primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .nav-link:hover::after { width: 100%; }
+  .nav-link:hover { color: var(--primary); }
+
+  /* ── Cursor glow ── */
+  #cursor-glow {
+    position: fixed;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(55,19,236,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    transition: opacity 0.3s;
+  }
+</style>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%233713EC'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='serif'>🎓</text></svg>"/>
+</head>
+<body>
+
+<!-- Cursor glow -->
+<div id="cursor-glow"></div>
+
+<!-- ── NAV ── -->
+<nav class="nav-glass fixed top-0 w-full z-50">
+  <div class="max-w-7xl mx-auto flex justify-between items-center px-6 py-4">
+    <div class="flex items-center gap-2" id="nav-logo">
+      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3713EC] to-[#5b21c4] flex items-center justify-center shadow-lg shadow-[#3713EC]/30">
+        <div class="icon-box shadow-lg shadow-indigo-500/20">
+                <svg width="34" height="34" viewBox="0 0 34 34">
+                    <circle cx="17" cy="17" r="12" fill="none" stroke="white" stroke-width="2.5"></circle>
+                    <circle cx="17" cy="17" r="8" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"></circle>
+                    <path d="M26 22 A12 12 0 0 1 29 17" fill="none" stroke="#4F46E5" stroke-width="3.5"></path>
+                    <line x1="24" y1="24" x2="30" y2="30" stroke="white" stroke-width="2.5" stroke-linecap="round"></line>
+                    <circle cx="17" cy="17" r="3" fill="white"></circle>
+                </svg>
+            </div>
+      </div>
+      <span class="text-2xl font-black text-[#1A1A2E] tracking-tighter">Quevra</span>
+    </div>
+    <div class="hidden md:flex items-center gap-8">
+      <a class="nav-link text-[#5D5C74] font-semibold text-sm" href="#features">Features</a>
+      <a class="nav-link text-[#5D5C74] font-semibold text-sm" href="#how-it-works">How it works</a>
+      <a class="nav-link text-[#5D5C74] font-semibold text-sm" href="#subjects">Subjects</a>
+      <a class="btn-primary text-white px-6 py-2.5 rounded-xl font-bold text-sm inline-block" href="/auth">Get Started</a>
+    </div>
+    <button class="md:hidden text-[#5D5C74]" id="mobile-menu-btn">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="relative pt-32 pb-24 px-6 overflow-hidden min-h-screen flex items-center">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center w-full">
+    <!-- Left -->
+    <div class="space-y-8">
+      <div class="hero-badge inline-flex items-center gap-2 px-4 py-2 rounded-full" id="hero-badge">
+        <span class="material-symbols-outlined text-[#3713EC] text-sm" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
+        <span class="text-[#3713EC] font-bold text-xs uppercase tracking-widest">AI-Powered Excellence</span>
+      </div>
+
+      <h1 class="text-5xl lg:text-7xl font-black text-[#1A1A2E] leading-[1.05] tracking-tight" id="hero-title">
+        Master your<br>
+        <span class="grad-text">future</span> at your<br>
+        own pace.
+      </h1>
+
+      <p class="text-lg text-[#5D5C74] leading-relaxed max-w-lg" id="hero-sub">
+        Tailored AI tutoring for JSS1 to SSS3 students, built specifically for the Nigerian National Curriculum. Academic brilliance, from home.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-4" id="hero-ctas">
+        <a class="btn-primary text-white px-8 py-4 rounded-2xl font-bold text-base text-center inline-block" href="/auth">
+          Get Started Now
+        </a>
+        <a class="btn-secondary text-[#3713EC] px-8 py-4 rounded-2xl font-bold text-base text-center inline-block" href="#features">
+          Learn More
+        </a>
+      </div>
+
+      <!-- Stats row -->
+      <div class="flex gap-8 pt-4" id="hero-stats">
+        <div>
+          <p class="text-3xl font-black text-[#1A1A2E]" id="stat-1">8+</p>
+          <p class="text-sm text-[#5D5C74] font-medium">Students</p>
+        </div>
+        <div class="w-px bg-[#E2E0FC]"></div>
+        <div>
+          <p class="text-3xl font-black text-[#1A1A2E]">15+</p>
+          <p class="text-sm text-[#5D5C74] font-medium">Subjects</p>
+        </div>
+        <div class="w-px bg-[#E2E0FC]"></div>
+        <div>
+          <p class="text-3xl font-black text-[#1A1A2E]">24/7</p>
+          <p class="text-sm text-[#5D5C74] font-medium">AI Support</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: image -->
+    <div class="relative" id="hero-image">
+      <div class="hero-img-wrap">
+        <img alt="Nigerian students learning with Quevra"
+             class="w-full aspect-[4/3] object-cover"
+             src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjCD8y1Toj0a4P46v4MD8Xa3esbQiy_fppOeAsNo9oV2cUROekmvuGONZyXV-gKBFNucXR_LRn4NwmrJ1j1-9lPY20UoolqclSIE3Hxu9Z7HmgHt8NMm7McQJOMC2-uu_fs90dzOEC8UTcc8-BiQL5CxIQjqB-KtYqEUg0f1FXzXLa-H2heef84cWPnXBch8kT2jqog0w_RHTByA6KYtthWsjbX9FP9tHTDMhiBnSFwZLjSXtD1s8MRv4a_qzIOhV25MUTzi4fifY"/>
+      </div>
+
+      <!-- Floating AI badge -->
+      <div class="float-badge absolute -bottom-6 -left-6 p-5 rounded-2xl flex items-center gap-4 max-w-[240px]">
+        <div class="w-12 h-12 bg-gradient-to-br from-[#3713EC] to-[#5b21c4] rounded-full flex items-center justify-center flex-shrink-0 shadow-md shadow-[#3713EC]/30">
+          <span class="material-symbols-outlined text-white" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+        </div>
+        <div>
+          <p class="text-[#1A1A2E] font-bold text-sm">AI Tutor Active</p>
+          <p class="text-[#5D5C74] text-xs">24/7 support</p>
+        </div>
+      </div>
+
+      <!-- Stat badge -->
+      <div class="stat-badge absolute -top-4 -right-4 p-4 rounded-2xl text-center min-w-[110px]">
+        <p class="text-2xl font-black text-[#3713EC]">JSS–SSS</p>
+        <p class="text-xs text-[#5D5C74] font-semibold">All Levels</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── MARQUEE (subjects ticker) ── -->
+<div class="py-6 bg-[#1A1A2E] overflow-hidden">
+  <div class="marquee-wrap">
+    <div class="marquee-track">
+      <!-- duplicated for seamless loop -->
+      <template id="marquee-items">
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">Mathematics</span>
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">Physics</span>
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">Chemistry</span>
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">Biology</span>
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">Economics</span>
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">Government</span>
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">English Language</span>
+        <span class="text-white/40 font-bold text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">Geography</span>
+        <span class="text-[#3713EC] font-black text-sm uppercase tracking-widest whitespace-nowrap px-8 py-2 border-r border-white/10">★ Quevra AI</span>
+      </template>
+    </div>
+  </div>
+</div>
+
+<!-- ── FEATURES ── -->
+<section class="py-28 px-6 bg-[#f5f2ff]" id="features">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-16 space-y-4">
+      <div class="section-label reveal">Everything you need</div>
+      <h2 class="text-4xl md:text-5xl font-black text-[#1A1A2E] tracking-tight reveal">
+        Built to help you ace<br>WAEC &amp; JAMB
+      </h2>
+      <p class="text-[#5D5C74] max-w-xl mx-auto reveal">Modern tools designed to make learning intuitive, personalised, and rewarding.</p>
+    </div>
+
+    <div class="grid md:grid-cols-12 gap-6">
+      <!-- AI Tutor — large card -->
+      <div class="md:col-span-8 feat-card rounded-3xl p-10 reveal-left">
+        <div class="flex flex-col md:flex-row gap-8 items-center">
+          <div class="flex-1 space-y-4">
+            <div class="icon-wrap bg-[#e3dfff]">
+              <span class="material-symbols-outlined text-[#3713EC] text-2xl">psychology</span>
+            </div>
+            <h3 class="text-2xl font-bold text-[#1A1A2E]">Your Personal AI Tutor</h3>
+            <p class="text-[#5D5C74] leading-relaxed">Ask any question about any topic. Our AI understands the Nigerian curriculum and explains complex concepts like a patient teacher — anytime you need it.</p>
+            <a href="/auth" class="inline-flex items-center gap-2 text-[#3713EC] font-bold text-sm hover:gap-4 transition-all">
+              Start a session <span class="material-symbols-outlined text-sm">arrow_forward</span>
+            </a>
+          </div>
+          <div class="flex-1 w-full">
+            <!-- Fake chat UI -->
+            <div class="bg-[#f5f2ff] rounded-2xl p-5 space-y-3">
+              <div class="flex justify-end">
+                <div class="bg-[#3713EC] text-white text-xs rounded-2xl rounded-tr-none px-4 py-3 max-w-[75%]">
+                  Explain Newton's First Law of Motion
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-7 h-7 bg-[#3713EC] rounded-full flex items-center justify-center flex-shrink-0">
+                  <span class="material-symbols-outlined text-white text-xs" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+                </div>
+                <div class="bg-white text-[#1A1A2E] text-xs rounded-2xl rounded-tl-none px-4 py-3 max-w-[75%] shadow-sm">
+                  Newton's First Law states that an object at rest stays at rest, and an object in motion stays in motion — unless acted upon by an external force...
+                </div>
+              </div>
+              <div class="flex gap-1 pl-10">
+                <div class="w-2 h-2 bg-[#3713EC] rounded-full animate-bounce"></div>
+                <div class="w-2 h-2 bg-[#3713EC] rounded-full animate-bounce" style="animation-delay:0.15s"></div>
+                <div class="w-2 h-2 bg-[#3713EC] rounded-full animate-bounce" style="animation-delay:0.3s"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress card -->
+      <div class="md:col-span-4 feat-card-gradient rounded-3xl p-10 text-white reveal-right">
+        <div class="space-y-6 h-full flex flex-col">
+          <span class="material-symbols-outlined text-5xl text-white/80">analytics</span>
+          <h3 class="text-2xl font-bold">Saves your progress</h3>
+          <p class="text-white/70 leading-relaxed flex-1">Never lose your place. Pick up exactly where you left off — on any device, any time.</p>
+          <div class="space-y-3">
+            <div class="flex justify-between text-sm font-semibold">
+              <span>Physics — Ch.4</span><span>78%</span>
+            </div>
+            <div class="progress-bar" data-fill="78">
+              <div class="progress-fill"></div>
+            </div>
+            <div class="flex justify-between text-sm font-semibold">
+              <span>Mathematics</span><span>55%</span>
+            </div>
+            <div class="progress-bar" data-fill="55">
+              <div class="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Curriculum -->
+      <div class="md:col-span-5 feat-card rounded-3xl p-10 reveal">
+        <div class="space-y-4">
+          <div class="icon-wrap bg-[#e3dfff]">
+            <span class="material-symbols-outlined text-[#3713EC] text-2xl">menu_book</span>
+          </div>
+          <h3 class="text-2xl font-bold text-[#1A1A2E]">Nigerian Curriculum</h3>
+          <p class="text-[#5D5C74] leading-relaxed">Fully aligned with JSS &amp; SSS standards. Study exactly what's required — from Basic Science in JSS1 to Further Maths in SSS3.</p>
+          <div class="flex flex-wrap gap-2 pt-2">
+            <span class="px-3 py-1 bg-[#e3dfff] text-[#3713EC] rounded-full text-xs font-bold">JSS1–JSS3</span>
+            <span class="px-3 py-1 bg-[#e3dfff] text-[#3713EC] rounded-full text-xs font-bold">SSS1–SSS3</span>
+            <span class="px-3 py-1 bg-[#e3dfff] text-[#3713EC] rounded-full text-xs font-bold">WAEC Ready</span>
+            <span class="px-3 py-1 bg-[#e3dfff] text-[#3713EC] rounded-full text-xs font-bold">JAMB Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Own pace -->
+      <div class="md:col-span-7 feat-card rounded-3xl p-10 flex flex-col md:flex-row gap-8 reveal">
+        <div class="space-y-4 flex-1">
+          <div class="icon-wrap bg-[#e9ddff]">
+            <span class="material-symbols-outlined text-[#42009f] text-2xl">speed</span>
+          </div>
+          <h3 class="text-2xl font-bold text-[#1A1A2E]">Study at your own pace</h3>
+          <p class="text-[#5D5C74] leading-relaxed">No rush. Master every concept before moving to the next. The AI adjusts its explanations to your level automatically.</p>
+        </div>
+        <div class="flex-1 flex items-end justify-center">
+          <img alt="Student studying"
+               class="rounded-2xl shadow-lg w-full h-36 object-cover"
+               src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCR2uGHzkc1YpQQvuspEDL_wqo16uaKLOuuPQLcn3XDUPQhaWW-JtQpuuuED0rUDisyQJ6rJWoA1Ryw65raj_8CJQ80dm8XNkblA1dhw0QLT71KsqFHbGjTuCHVFu5btrM8sFMtSD-OY0hRuBdnyuXgd2Hy74YIHFfPZ84OArU1bp3b1UjJjlvNvsVWI4n78t-qYre09SgsBMMYl_UuBLU0bMxCw_wgqlg3zI6lZJCBaACZT28pq6E1Wbn6A3EF7yTjTEVb_RzMUU"/>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="py-28 px-6" id="how-it-works">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-20 space-y-4">
+      <div class="section-label reveal">Simple process</div>
+      <h2 class="text-4xl md:text-5xl font-black text-[#1A1A2E] tracking-tight reveal">Your Path to Mastery</h2>
+      <p class="text-[#5D5C74] reveal">Three steps to transform how you study.</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-12 relative">
+      <!-- connectors (desktop) -->
+      <div class="hidden md:block step-connector" style="left:calc(16.66% + 36px); width:calc(33.33% - 72px);"></div>
+      <div class="hidden md:block step-connector" style="left:calc(50% + 36px); width:calc(33.33% - 72px);"></div>
+
+      <div class="text-center space-y-6 relative z-10 reveal">
+        <div class="step-circle bg-gradient-to-br from-[#3713EC] to-[#5b21c4] text-white shadow-xl shadow-[#3713EC]/30 mx-auto">1</div>
+        <h3 class="text-xl font-bold text-[#1A1A2E]">Create Profile</h3>
+        <p class="text-[#5D5C74] leading-relaxed text-sm">Choose your class level (JSS1–SSS3) and pick your target subjects. Takes under a minute.</p>
+      </div>
+
+      <div class="text-center space-y-6 relative z-10 reveal">
+        <div class="step-circle bg-gradient-to-br from-[#42009f] to-[#5b21c4] text-white shadow-xl shadow-[#42009f]/30 mx-auto">2</div>
+        <h3 class="text-xl font-bold text-[#1A1A2E]">Learn with AI</h3>
+        <p class="text-[#5D5C74] leading-relaxed text-sm">Chat with your AI tutor on any topic. Get clear explanations, examples, and practice questions instantly.</p>
+      </div>
+
+      <div class="text-center space-y-6 relative z-10 reveal">
+        <div class="step-circle bg-gradient-to-br from-[#1A1A2E] to-[#2d2c45] text-white shadow-xl mx-auto">3</div>
+        <h3 class="text-xl font-bold text-[#1A1A2E]">Assess &amp; Excel</h3>
+        <p class="text-[#5D5C74] leading-relaxed text-sm">Take adaptive quizzes, track your progress, and master the curriculum before exam day.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SUBJECTS ── -->
+<section class="py-28 px-6 bg-[#f5f2ff]" id="subjects">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex flex-col md:flex-row justify-between items-end mb-14 gap-6">
+      <div class="space-y-3">
+        <div class="section-label reveal">Full coverage</div>
+        <h2 class="text-4xl md:text-5xl font-black text-[#1A1A2E] tracking-tight reveal">Explore Subjects</h2>
+        <p class="text-[#5D5C74] reveal">Comprehensive content for all core Nigerian subjects.</p>
+      </div>
+    
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5">
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">functions</span>
+        <h4 class="font-bold text-[#1A1A2E]">Mathematics</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">bolt</span>
+        <h4 class="font-bold text-[#1A1A2E]">Physics</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">science</span>
+        <h4 class="font-bold text-[#1A1A2E]">Chemistry</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">biotech</span>
+        <h4 class="font-bold text-[#1A1A2E]">Biology</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">payments</span>
+        <h4 class="font-bold text-[#1A1A2E]">Economics</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">account_balance</span>
+        <h4 class="font-bold text-[#1A1A2E]">Government</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">translate</span>
+        <h4 class="font-bold text-[#1A1A2E]">English</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">public</span>
+        <h4 class="font-bold text-[#1A1A2E]">Geography</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">grass</span>
+        <h4 class="font-bold text-[#1A1A2E]">Agric. Science</h4>
+      </div>
+      <div class="subject-card p-8 text-center reveal-scale">
+        <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">menu_book</span>
+        <h4 class="font-bold text-[#1A1A2E]">Literature</h4>
+      </div>
+      
+
+
+  <!-- English Language -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">menu_book</span>
+    <h4 class="font-bold text-[#1A1A2E]">English Language</h4>
+  </div>
+
+  <!-- Basic Science -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">science</span>
+    <h4 class="font-bold text-[#1A1A2E]">Basic Science</h4>
+  </div>
+
+  <!-- Basic Technology -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">engineering</span>
+    <h4 class="font-bold text-[#1A1A2E]">Basic Technology</h4>
+  </div>
+
+  <!-- Social Studies -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">public</span>
+    <h4 class="font-bold text-[#1A1A2E]">Social Studies</h4>
+  </div>
+
+  <!-- Civic Education -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">gavel</span>
+    <h4 class="font-bold text-[#1A1A2E]">Civic Education</h4>
+  </div>
+
+  <!-- Agricultural Science -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">grass</span>
+    <h4 class="font-bold text-[#1A1A2E]">Agricultural Science</h4>
+  </div>
+
+  <!-- Computer Studies -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">computer</span>
+    <h4 class="font-bold text-[#1A1A2E]">Computer Studies</h4>
+  </div>
+
+  <!-- Cultural & Creative Arts -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">palette</span>
+    <h4 class="font-bold text-[#1A1A2E]">Cultural & Creative Arts</h4>
+  </div>
+
+  <!-- Home Economics -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">restaurant</span>
+    <h4 class="font-bold text-[#1A1A2E]">Home Economics</h4>
+  </div>
+
+  <!-- Business Studies -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">business_center</span>
+    <h4 class="font-bold text-[#1A1A2E]">Business Studies</h4>
+  </div>
+
+  <!-- Physical & Health Education -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">fitness_center</span>
+    <h4 class="font-bold text-[#1A1A2E]">Physical & Health Education</h4>
+  </div>
+
+  <!-- Religious Studies -->
+  <div class="subject-card p-8 text-center reveal-scale">
+    <span class="material-symbols-outlined text-5xl text-[#3713EC] mb-4 block subj-icon">auto_stories</span>
+    <h4 class="font-bold text-[#1A1A2E]">Religious Studies</h4>
+  </div>
+
+</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TESTIMONIALS ── -->
+<section class="py-28 px-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-16 space-y-4">
+      <div class="section-label reveal">Student voices</div>
+      <h2 class="text-4xl md:text-5xl font-black text-[#1A1A2E] tracking-tight reveal">Trusted by Nigerian Scholars</h2>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-8">
+      <div class="testi-card rounded-3xl p-8 space-y-6 reveal">
+        <div class="flex gap-1 text-[#42009f]">
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+        </div>
+        <p class="text-[#1A1A2E] font-medium leading-relaxed italic">"Quevra helped me understand Further Maths in a way my classroom couldn't. The AI tutor explains things so clearly!"</p>
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-[#e3dfff] flex items-center justify-center font-bold text-[#3713EC] text-sm">CO</div>
+          <div>
+            <p class="font-bold text-sm text-[#1A1A2E]">Chidi Okoro</p>
+            <p class="text-[#5D5C74] text-xs font-bold uppercase tracking-wider">SSS3 Student</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="testi-card rounded-3xl p-8 space-y-6 reveal">
+        <div class="flex gap-1 text-[#42009f]">
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+        </div>
+        <p class="text-[#1A1A2E] font-medium leading-relaxed italic">"The curriculum is spot on. I used Quevra for my JSS3 exams and I'm confident I got all distinctions."</p>
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-[#e9ddff] flex items-center justify-center font-bold text-[#42009f] text-sm">AE</div>
+          <div>
+            <p class="font-bold text-sm text-[#1A1A2E]">Amina Eze</p>
+            <p class="text-[#5D5C74] text-xs font-bold uppercase tracking-wider">JSS3 Student</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="testi-card rounded-3xl p-8 space-y-6 reveal">
+        <div class="flex gap-1 text-[#42009f]">
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">star</span>
+        </div>
+        <p class="text-[#1A1A2E] font-medium leading-relaxed italic">"I love how it saves my progress. I study on my phone in the evening and continue on the tablet later — no problem!"</p>
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-[#e2e0fc] flex items-center justify-center font-bold text-[#5d5c74] text-sm">TO</div>
+          <div>
+            <p class="font-bold text-sm text-[#1A1A2E]">Tunde Oladele</p>
+            <p class="text-[#5D5C74] text-xs font-bold uppercase tracking-wider">SSS1 Student</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA BANNER ── -->
+<section class="py-16 px-6">
+  <div class="max-w-5xl mx-auto cta-banner rounded-[2.5rem] p-16 md:p-24 text-center reveal-scale">
+    <div class="relative z-10 space-y-8">
+      <h2 class="text-4xl md:text-6xl font-black text-white tracking-tight">
+        Ready to start<br>learning?
+      </h2>
+      <p class="text-white/60 text-lg max-w-lg mx-auto">
+        Join students already using Quevra to transform how they study and ace their exams.
+      </p>
+      <a class="btn-primary text-white px-10 py-5 rounded-2xl font-bold text-lg inline-flex items-center gap-3" href="/auth">
+        Sign Up — It's Free
+        <span class="material-symbols-outlined">bolt</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer class="bg-[#1A1A2E] text-white pt-20 pb-10 px-8">
+  <div class="max-w-7xl mx-auto flex flex-col items-center text-center">
+    <div class="flex items-center gap-2 mb-4">
+      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3713EC] to-[#5b21c4] flex items-center justify-center shadow-lg shadow-[#3713EC]/30">
+        <div class="icon-box shadow-lg shadow-indigo-500/20">
+                <svg width="34" height="34" viewBox="0 0 34 34">
+                    <circle cx="17" cy="17" r="12" fill="none" stroke="white" stroke-width="2.5"></circle>
+                    <circle cx="17" cy="17" r="8" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"></circle>
+                    <path d="M26 22 A12 12 0 0 1 29 17" fill="none" stroke="#4F46E5" stroke-width="3.5"></path>
+                    <line x1="24" y1="24" x2="30" y2="30" stroke="white" stroke-width="2.5" stroke-linecap="round"></line>
+                    <circle cx="17" cy="17" r="3" fill="white"></circle>
+                </svg>
+            </div>
+      </div>
+      <span class="text-2xl font-black tracking-tighter">Quevra</span>
+    </div>
+    <p class="text-white/40 max-w-sm mb-10 text-sm leading-relaxed">
+      Empowering the next generation of Nigerian leaders with AI-powered learning tools. Built for JSS1 to SSS3 students.
+    </p>
+    <!-- <div class="flex flex-wrap justify-center gap-8 mb-10">
+      <a class="text-white/40 hover:text-white transition-colors text-sm font-semibold" href="#">About</a>
+      <a class="text-white/40 hover:text-white transition-colors text-sm font-semibold" href="#features">Features</a>
+      <a class="text-white/40 hover:text-white transition-colors text-sm font-semibold" href="#">Contact</a>
+      <a class="text-white/40 hover:text-white transition-colors text-sm font-semibold" href="#">Privacy</a>
+    </div> -->
+    <div class="w-full h-px bg-white/5 mb-8"></div>
+    <p class="text-white/20 text-xs">&copy; 2026 Quevra Education. Built for the next generation of Nigerian leaders.</p>
+  </div>
+</footer>
+
+<!-- ── MOBILE NAV ── -->
+<div class="md:hidden fixed bottom-5 left-1/2 -translate-x-1/2 w-[88%] mobile-nav rounded-3xl z-50 flex justify-center gap-3 px-4 py-3">
+  <a class="flex flex-col items-center btn-primary text-white rounded-2xl px-6 py-2.5 gap-1" href="/auth">
+    <span class="material-symbols-outlined text-sm">bolt</span>
+    <span class="text-xs font-bold">Start Learning</span>
+  </a>
+  <a class="flex flex-col items-center text-[#5D5C74] px-6 py-2 gap-1" href="#features">
+    <span class="material-symbols-outlined text-sm">explore</span>
+    <span class="text-xs font-semibold">Explore</span>
+  </a>
+</div>
+
+<script>
+// ── Marquee: duplicate items for seamless loop ──
+(function() {
+  const tmpl = document.getElementById('marquee-items');
+  const track = document.querySelector('.marquee-track');
+  const items = tmpl.content.cloneNode(true);
+  const items2 = tmpl.content.cloneNode(true);
+  track.appendChild(items);
+  track.appendChild(items2);
+})();
+
+// ── Cursor glow ──
+const glow = document.getElementById('cursor-glow');
+document.addEventListener('mousemove', e => {
+  glow.style.left = e.clientX + 'px';
+  glow.style.top  = e.clientY + 'px';
+});
+
+// ── GSAP Animations ──
+gsap.registerPlugin(ScrollTrigger);
+
+// Nav entrance
+gsap.from('#nav-logo', { y: -30, opacity: 0, duration: 0.8, ease: 'power3.out', delay: 0.1 });
+gsap.from('nav .hidden', { y: -20, opacity: 0, duration: 0.8, ease: 'power3.out', delay: 0.2 });
+
+// Hero stagger
+const heroTL = gsap.timeline({ delay: 0.3 });
+heroTL
+  .from('#hero-badge',  { y: 30, opacity: 0, duration: 0.7, ease: 'power3.out' })
+  .from('#hero-title',  { y: 50, opacity: 0, duration: 0.9, ease: 'power3.out' }, '-=0.4')
+  .from('#hero-sub',    { y: 30, opacity: 0, duration: 0.7, ease: 'power3.out' }, '-=0.5')
+  .from('#hero-ctas',   { y: 30, opacity: 0, duration: 0.7, ease: 'power3.out' }, '-=0.4')
+  .from('#hero-stats',  { y: 20, opacity: 0, duration: 0.6, ease: 'power3.out' }, '-=0.4')
+  .from('#hero-image',  { x: 60, opacity: 0, duration: 1,   ease: 'power3.out' }, '-=0.9');
+
+// Orbs slow drift
+gsap.to('.orb-1', { x: 30,  y: -20, duration: 8, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+gsap.to('.orb-2', { x: -20, y: 30,  duration: 10, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+gsap.to('.orb-3', { x: 20,  y: 20,  duration: 7, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+
+// Generic scroll reveals
+gsap.utils.toArray('.reveal').forEach((el, i) => {
+  gsap.to(el, {
+    y: 0, opacity: 1, duration: 0.8,
+    ease: 'power3.out',
+    delay: (i % 3) * 0.1,
+    scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
+  });
+});
+
+gsap.utils.toArray('.reveal-left').forEach(el => {
+  gsap.to(el, {
+    x: 0, opacity: 1, duration: 0.9, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none none' }
+  });
+});
+
+gsap.utils.toArray('.reveal-right').forEach(el => {
+  gsap.to(el, {
+    x: 0, opacity: 1, duration: 0.9, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none none' }
+  });
+});
+
+gsap.utils.toArray('.reveal-scale').forEach((el, i) => {
+  gsap.to(el, {
+    scale: 1, opacity: 1, duration: 0.7,
+    ease: 'back.out(1.4)',
+    delay: (i % 5) * 0.07,
+    scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
+  });
+});
+
+// Progress bars animate on scroll
+gsap.utils.toArray('.progress-bar').forEach(bar => {
+  const fill = bar.querySelector('.progress-fill');
+  const pct  = bar.dataset.fill + '%';
+  ScrollTrigger.create({
+    trigger: bar,
+    start: 'top 85%',
+    onEnter: () => { fill.style.width = pct; }
+  });
+});
+
+// Step circles pop in with stagger
+gsap.utils.toArray('.step-circle').forEach((el, i) => {
+  gsap.from(el, {
+    scale: 0, rotation: -15, opacity: 0,
+    duration: 0.6, ease: 'back.out(2)',
+    delay: i * 0.15,
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none none' }
+  });
+});
+
+// Testimonial cards cascade
+gsap.utils.toArray('.testi-card').forEach((el, i) => {
+  gsap.from(el, {
+    y: 50, opacity: 0, duration: 0.7,
+    ease: 'power3.out',
+    delay: i * 0.15,
+    scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
+  });
+});
+
+// Nav shrink on scroll
+ScrollTrigger.create({
+  start: 'top -60',
+  onUpdate: self => {
+    const nav = document.querySelector('nav');
+    if (self.direction === 1) {
+      nav.style.padding = '0';
+    } else {
+      nav.style.padding = '';
+    }
+  }
+});
+
+// Parallax on hero image
+gsap.to('#hero-image', {
+  y: -40,
+  ease: 'none',
+  scrollTrigger: {
+    trigger: '#hero-image',
+    start: 'top top',
+    end: 'bottom top',
+    scrub: true
+  }
+});
+</script>
+</body>
+</html>
