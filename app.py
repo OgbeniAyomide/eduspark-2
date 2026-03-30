@@ -3,7 +3,8 @@ import libsql_experimental as libsql
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
-import resend
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from google import genai
@@ -12,12 +13,32 @@ import os
 
 load_dotenv()
 
+
+#===========BREVO===========
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+MAIL_FROM     = os.getenv("MAIL_FROM")
 app = Flask(__name__)
 app.secret_key = "fhdsshdhfskshfdskshffjjshhfsjwwjffhsahdhfeajoffkdmmvbvbsv"
 CORS(app)
 
-resend.api_key = os.getenv('RESEND_API_KEY', '')
-MAIL_FROM = os.getenv('MAIL_FROM', 'onboarding@resend.dev')
+configuration = sib_api_v3_sdk.Configuration()
+configuration.api_key['api-key'] = BREVO_API_KEY
+api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+def send_email(to_email, subject, content):
+    try:
+        email = sib_api_v3_sdk.SendSmtpEmail(
+            to=[{"email": to_email}],
+            sender={"email": MAIL_FROM, "name": "Quevra"},
+            subject=subject,
+            html_content=content
+        )
+
+        response = api_instance.send_transac_email(email)
+        print("Email sent:", response)
+
+    except ApiException as e:
+        print("Brevo error:", e)
 
 # ==================== TURSO ====================
 TURSO_URL       = os.getenv("TURSO_DATABASE_URL")
@@ -214,17 +235,26 @@ def forgot_password():
         conn.commit()
 
         reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
-        resend.Emails.send({
-            "from":    MAIL_FROM,
-            "to":      email,
-            "subject": "Reset your EduSpark password",
-            "text":    f"Click the link below to reset your password (valid for 15 minutes):\n\n{reset_link}\n\nIf you did not request this, ignore this email."
+        html = f"""
+        <h2>Password Reset</h2>
+        <p>Click the link below to reset your password:</p>
+        <a href="{reset_link}">Reset Password</a>
+        <p>This link expires in 15 minutes.</p>
+        """
+
+        send_email(email, "Reset your Quevra password", html)
+
+        return jsonify({
+            "success": True,
+            "message": "Password reset link sent to your email."
         })
 
-        return jsonify({"success": True, "message": "Password reset link sent to your email."})
     except Exception as e:
         print(f"Forgot password error: {e}")
-        return jsonify({"success": False, "message": f"Server error: {str(e)}"})
+        return jsonify({
+            "success": False,
+            "message": f"Server error: {str(e)}"
+        })
 
 
 @app.route('/api/reset-password/<token>', methods=['POST'])
