@@ -2,6 +2,7 @@ flask
 flask_cors
 Flask-Mail
 gunicorn
+sib_api_v3_sdk
 Werkzeug>=2.3.8
 resend
 google-genai
