@@ -427,8 +427,8 @@
 </div>
 
 <!-- AI Chat Modal -->
-<div id="tutorModal" class="fixed inset-0 z-[100] bg-on-background/40 backdrop-blur-sm hidden items-center  justify-center p-4 md:p-6">
-  <div class="bg-surface-container-lowest w-full h-full rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+<div id="tutorModal" class="fixed inset-0 z-[100] bg-on-background/40 backdrop-blur-sm hidden items-center justify-center p-4 md:p-6">
+  <div class="bg-surface-container-lowest w-full max-w-4xl h-[90vh] max-h-[820px] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
     <!-- Modal Header -->
     <div class="p-6 bg-primary text-white flex items-center justify-between shrink-0">
       <div class="flex items-center gap-4">
@@ -436,7 +436,7 @@
           <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">smart_toy</span>
         </div>
         <div>
-          <h3 class="font-bold">Quevra AI Tutor</h3>
+          <h3 class="font-bold">EduSpark AI Tutor</h3>
           <p class="text-[10px] text-primary-fixed opacity-70">Topic: <span id="modalTopic">—</span></p>
         </div>
       </div>
@@ -516,20 +516,258 @@ const USER_SUBJECTS = {{ user.subjects | tojson }};
 
 // ─── Subject → Topic map ─────────────────────────────────────────────────────
 const subjectTopics = {
-  "Mathematics":        ["Algebra", "Trigonometry", "Functions", "Statistics", "Geometry", "Calculus", "Probability"],
-  "English Language":   ["Comprehension", "Summary Writing", "Essay Writing", "Lexis and Structure", "Oral English"],
-  "Physics":            ["Motion", "Electricity", "Waves", "Energy", "Heat Transfer", "Thermodynamics", "Optics"],
-  "Chemistry":          ["Atomic Structure", "Periodic Table", "Chemical Bonding", "Acids & Bases", "Organic Chemistry"],
-  "Biology":            ["Cell Structure", "Respiration", "Reproduction", "Ecology", "Genetics", "Plant Biology"],
-  "Further Mathematics":["Complex Numbers", "Matrices", "Vectors", "Differential Equations", "Statistics"],
-  "Geography":          ["Map Reading", "Climate", "Population", "Rocks and Minerals", "Economic Geography"],
-  "Economics":          ["Supply and Demand", "Market Structures", "National Income", "Fiscal Policy", "Trade"],
-  "Government":         ["Arms of Government", "Electoral Systems", "Political Parties", "Constitution", "Federalism"],
-  "Agricultural Science":["Soil Science", "Crop Production", "Animal Husbandry", "Farm Management", "Pest Control"],
-  "Civic Education":    ["Human Rights", "Democracy", "Rule of Law", "Citizenship", "National Values"],
-  "Literature in English":["Poetry", "Drama", "Prose", "Literary Devices", "Comprehension"],
-  "Animal Husbandry":   ["Livestock Management", "Animal Nutrition", "Veterinary Science", "Breeding"],
-  "Yoruba Language":    ["Oral Yoruba", "Written Yoruba", "Yoruba Literature", "Grammar"],
+  "Mathematics": [
+    "Whole Numbers and Number Systems",
+    "Fractions and Decimals",
+    "Ratio, Proportion and Percentages",
+    "Factors, Multiples, LCM, HCF",
+    "Algebraic Expressions and Equations",
+    "Simple and Simultaneous Equations",
+    "Indices and Logarithms",
+    "Sets and Venn Diagrams",
+    "Statistics and Data Representation",
+    "Probability",
+    "Geometry (Lines, Angles, Triangles, Quadrilaterals, Circles)",
+    "Mensuration (Perimeter, Area, Volume, Surface Area)",
+    "Trigonometry",
+    "Graphs and Functions",
+    "Quadratic Equations",
+    "Variation (Direct, Inverse)",
+    "Sequences and Series",
+    "Coordinate Geometry",
+    "Introduction to Calculus (Limits, Differentiation, Integration)",
+    "Matrices and Determinants",
+    "Vectors",
+    "Complex Numbers",
+    "Further Probability and Statistics"
+  ],
+
+  "English Language": [
+    "Parts of Speech",
+    "Sentence Structure and Types",
+    "Tenses and Concord",
+    "Comprehension Skills",
+    "Summary Writing",
+    "Essay Writing (Narrative, Descriptive, Argumentative, Expository)",
+    "Letter Writing (Formal, Informal)",
+    "Vocabulary Development",
+    "Figures of Speech (Simile, Metaphor, Personification)",
+    "Direct and Indirect Speech",
+    "Active and Passive Voice",
+    "Oral English (Phonetics, Stress, Intonation, Reading Aloud)",
+    "Listening and Speaking Skills",
+    "Report Writing",
+    "Story Writing and Composition",
+    "Grammar Exercises and Editing",
+    "Punctuation Rules",
+    "Idioms and Proverbs",
+    "Spelling and Dictation",
+    "Literary Appreciation (Poetry, Prose, Drama)"
+  ],
+
+  "Yoruba Language": [
+    "Ede Yoruba (Alphabet, Sounds, Phonetics)",
+    "Isedale Oro (Word Formation, Root Words)",
+    "Gbolohun (Sentence Construction, Simple & Complex)",
+    "Aroko Kikowe (Essay Writing, Paragraphs)",
+    "Aroko Alaye ati Aroko Alariyanjiyan (Expository & Narrative Essays)",
+    "Itan ati Asa Yoruba (Culture, History, Traditions)",
+    "Litireso Yoruba (Poetry, Prose, Drama)",
+    "Grammar Rules (Tones, Pronouns, Verbs, Adjectives)",
+    "Vocabulary Building",
+    "Idioms, Proverbs, and Sayings",
+    "Reading Comprehension in Yoruba",
+    "Oral Yoruba (Speech, Recitation, Oral Literature)",
+    "Translation (English ↔ Yoruba)",
+    "Composition Writing",
+    "Letter Writing",
+    "Summary and Paraphrasing",
+    "Storytelling Skills",
+    "Dialogue Construction",
+    "Listening and Speaking Practice"
+  ],
+
+  "Physics": [
+    "Motion",
+    "Force and Pressure",
+    "Work, Energy, Power",
+    "Simple Machines",
+    "Heat and Temperature",
+    "Waves (Sound and Light)",
+    "Electricity and Magnetism",
+    "Circuits and Current",
+    "Energy Transfer and Conservation",
+    "Optics (Reflection, Refraction, Lenses)",
+    "Heat Transfer Methods",
+    "Sound Waves and Properties",
+    "Thermodynamics Basics",
+    "Electronics Fundamentals",
+    "Atomic Physics and Radioactivity",
+    "Fluid Mechanics",
+    "Oscillations and Vibrations",
+    "Electromagnetic Induction",
+    "Gravitation",
+    "Modern Physics Concepts"
+  ],
+
+  "Chemistry": [
+    "Matter and Its Properties",
+    "Elements, Compounds, and Mixtures",
+    "Atomic Structure",
+    "Periodic Table",
+    "Chemical Bonding",
+    "Acids, Bases, and Salts",
+    "Organic Chemistry Basics",
+    "Hydrocarbons",
+    "Water and Solutions",
+    "Oxidation and Reduction",
+    "Chemical Reactions and Equations",
+    "Stoichiometry",
+    "Electrochemistry",
+    "Gases and Gas Laws",
+    "Thermochemistry",
+    "Chemical Kinetics",
+    "Environmental Chemistry",
+    "Analytical Chemistry",
+    "Laboratory Techniques"
+  ],
+
+  "Biology": [
+    "Cell Structure and Function",
+    "Nutrition in Plants and Animals",
+    "Human Body Systems (Digestive, Circulatory, Respiratory, Excretory)",
+    "Reproduction (Plant and Animal)",
+    "Genetics and Heredity",
+    "Evolution",
+    "Ecology and Environmental Science",
+    "Microorganisms",
+    "Photosynthesis and Respiration",
+    "Plant Biology",
+    "Animal Physiology",
+    "Disease and Immunity",
+    "Human Health and Hygiene",
+    "Population and Conservation",
+    "Classification of Living Organisms",
+    "Adaptation and Survival",
+    "Biotechnology Basics",
+    "Practical Biology Skills"
+  ],
+
+  "Further Mathematics": [
+    "Complex Numbers",
+    "Matrices",
+    "Vectors",
+    "Differential Equations",
+    "Advanced Probability",
+    "Statistics",
+    "Quadratic and Cubic Functions",
+    "Logarithms and Exponentials",
+    "Trigonometry Identities",
+    "Linear Algebra",
+    "Sequence and Series",
+    "Coordinate Geometry",
+    "Advanced Calculus Concepts"
+  ],
+
+  "Geography": [
+    "Map Reading and Interpretation",
+    "Latitude, Longitude, Time Zones",
+    "Climate and Weather",
+    "Rocks and Minerals",
+    "Soil Types and Formation",
+    "Vegetation and Ecosystems",
+    "Population and Demography",
+    "Economic Geography",
+    "Urbanization and Settlement",
+    "Natural Disasters",
+    "Hydrology and Rivers",
+    "Transport and Communication",
+    "Environmental Issues",
+    "Cartography Basics"
+  ],
+
+  "Economics": [
+    "Supply and Demand",
+    "Market Structures",
+    "National Income",
+    "Fiscal and Monetary Policy",
+    "Trade and Commerce",
+    "Inflation and Unemployment",
+    "Production and Cost",
+    "Business Cycles",
+    "Money and Banking",
+    "International Trade",
+    "Entrepreneurship",
+    "Economic Development",
+    "Pricing and Revenue"
+  ],
+
+  "Government": [
+    "Arms of Government",
+    "Constitution",
+    "Political Parties",
+    "Electoral Systems",
+    "Federalism",
+    "Legislature Functions",
+    "Executive Functions",
+    "Judiciary Functions",
+    "Human Rights and Responsibilities",
+    "Public Administration",
+    "International Relations",
+    "Democracy and Governance"
+  ],
+
+  "Agricultural Science": [
+    "Soil Science",
+    "Crop Production",
+    "Animal Husbandry",
+    "Farm Management",
+    "Pest and Disease Control",
+    "Planting Techniques",
+    "Irrigation and Drainage",
+    "Post-Harvest Handling",
+    "Agricultural Economics",
+    "Livestock Nutrition",
+    "Husbandry Practices",
+    "Farm Mechanization"
+  ],
+
+  "Civic Education": [
+    "Human Rights",
+    "Democracy",
+    "Rule of Law",
+    "Citizenship",
+    "National Values",
+    "Patriotism and Unity",
+    "Social Responsibilities",
+    "Leadership and Integrity",
+    "Conflict Resolution",
+    "Community Development"
+  ],
+
+  "Literature in English": [
+    "Poetry",
+    "Drama",
+    "Prose",
+    "Literary Devices",
+    "Comprehension",
+    "Character Analysis",
+    "Plot Structure",
+    "Themes and Motifs",
+    "Historical Context",
+    "Literary Criticism"
+  ],
+
+  "Animal Husbandry": [
+    "Livestock Management",
+    "Animal Nutrition",
+    "Veterinary Science",
+    "Breeding and Reproduction",
+    "Disease Prevention",
+    "Housing and Shelter",
+    "Record Keeping",
+    "Marketing of Animal Products"
+  ]
 };
 
 // Subject colour map
