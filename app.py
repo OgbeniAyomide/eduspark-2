@@ -316,7 +316,7 @@ def ask_ai_anything():
         if not user_input:
             return jsonify({"success": False, "message": "Input is required"}), 400
         response= grok_client.chat.completions.create(
-            model="grok-2",
+            model="grok-4.20-reasoning",
             messages=[
                 {"role": "system", "content": "You are an highly intelligent and helpful assistant named Quevra AI, designed to provide clear and concise answers to any questions asked by students. Always respond in a friendly, professional, and easy-to-understand manner, regardless of the topic. Your goal is to help students learn and understand concepts effectively."},
                 {"role": "user", "content": user_input}
