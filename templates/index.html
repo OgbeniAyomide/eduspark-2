@@ -1,514 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Quevra Dashboard</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<link rel="manifest" href="/manifest.json">
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "secondary-fixed": "#f1dbff",
-          "on-tertiary-fixed-variant": "#8e0048",
-          "on-primary-fixed-variant": "#3100e4",
-          "surface": "#f9f9fb",
-          "on-tertiary-fixed": "#3f001c",
-          "on-primary": "#ffffff",
-          "secondary-container": "#c17bff",
-          "on-tertiary-container": "#ffa3be",
-          "tertiary": "#6f0037",
-          "on-surface-variant": "#464557",
-          "surface-container": "#edeef0",
-          "tertiary-fixed-dim": "#ffb1c7",
-          "on-secondary-fixed": "#2d0050",
-          "surface-bright": "#f9f9fb",
-          "surface-container-low": "#f3f3f5",
-          "outline-variant": "#c7c4da",
-          "primary-container": "#3713ec",
-          "outline": "#777588",
-          "on-primary-container": "#bab6ff",
-          "surface-dim": "#d9dadc",
-          "tertiary-container": "#99004e",
-          "primary-fixed": "#e3dfff",
-          "on-error": "#ffffff",
-          "primary": "#2400b4",
-          "surface-tint": "#4b37fc",
-          "on-error-container": "#93000a",
-          "on-secondary": "#ffffff",
-          "on-primary-fixed": "#110069",
-          "background": "#f9f9fb",
-          "surface-container-high": "#e8e8ea",
-          "error": "#ba1a1a",
-          "primary-fixed-dim": "#c4c0ff",
-          "inverse-on-surface": "#f0f0f2",
-          "surface-container-highest": "#e2e2e4",
-          "error-container": "#ffdad6",
-          "surface-variant": "#e2e2e4",
-          "on-secondary-container": "#4e0084",
-          "secondary": "#803abd",
-          "inverse-surface": "#2f3132",
-          "tertiary-fixed": "#ffd9e2",
-          "on-tertiary": "#ffffff",
-          "secondary-fixed-dim": "#dfb7ff",
-          "on-secondary-fixed-variant": "#661aa3",
-          "on-background": "#1a1c1d",
-          "inverse-primary": "#c4c0ff",
-          "surface-container-lowest": "#ffffff",
-          "on-surface": "#1a1c1d"
-        },
-        fontFamily: {
-          "headline": ["Plus Jakarta Sans"],
-          "body": ["Plus Jakarta Sans"],
-          "label": ["Plus Jakarta Sans"]
-        },
-        borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
-      },
-    },
-  }
-</script>
-<style>
-  body { font-family: 'Plus Jakarta Sans', sans-serif; }
-  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-  .glass-nav { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-
-  /* Markdown rendering inside chat */
-  .ai-message p { margin-bottom: 0.5rem; }
-  .ai-message ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
-  .ai-message ol { list-style: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
-  .ai-message strong { font-weight: 700; }
-  .ai-message h1, .ai-message h2, .ai-message h3 { font-weight: 700; margin-bottom: 0.4rem; }
-  .ai-message code { background: #e8e8ea; border-radius: 4px; padding: 1px 5px; font-size: 0.8em; }
-
-  /* Typing dots */
-  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
-  .typing-dot { animation: bounce 1.2s infinite; }
-  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-  /* Mobile sidebar overlay */
-  #sidebarOverlay { display: none; }
-  @media (max-width: 1023px) {
-    #sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
-    #sidebar.open { transform: translateX(0); }
-    #sidebarOverlay.open { display: block; }
-    main { margin-left: 0 !important; }
-    header { width: 100% !important; }
-  }
-</style>
-</head>
-<body class="bg-surface text-on-surface antialiased">
-
-<!-- Mobile Sidebar Overlay -->
-<div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 lg:hidden" onclick="toggleSidebar()"></div>
-
-<!-- Sidebar -->
-<aside id="sidebar" class="h-screen w-64 fixed left-0 top-0 bg-slate-50 flex flex-col p-6 font-plus-jakarta-sans antialiased text-sm font-medium z-50 shadow-xl">
-<div class="mb-10 flex items-center gap-3">
-    <div class="w-11 h-11 bg-[#4F46E5] rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-      <svg width="28" height="28" viewBox="0 0 34 34">
-          <circle cx="17" cy="17" r="12" fill="none" stroke="white" stroke-width="2.5"></circle>
-          <path d="M26 22 A12 12 0 0 1 29 17" fill="none" stroke="#3713EC" stroke-width="3.5"></path>
-          <line x1="24" y1="24" x2="30" y2="30" stroke="white" stroke-width="2.5" stroke-linecap="round"></line>
-          <circle cx="17" cy="17" r="3" fill="white"></circle>
-      </svg>
-    </div>
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight text-indigo-900 brand-serif">Quevra</h1>
-      <p class="text-[9px] uppercase tracking-widest text-slate-400 font-extrabold">Learn without limits</p>
-    </div>
-  </div>
-
-  <nav class="flex-1 space-y-2">
-    <a class="flex items-center gap-3 px-4 py-3 text-indigo-700 font-bold bg-white rounded-xl shadow-sm" href="/dashboard">
-      <span class="material-symbols-outlined">dashboard</span>
-      <span>Dashboard</span>
-    </a>
-    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-all duration-200 rounded-xl" href="#" onclick="showToast('Study page coming soon!')">
-      <span class="material-symbols-outlined">menu_book</span>
-      <span>Study</span>
-    </a>
-    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-all duration-200 rounded-xl" href="#" onclick="showToast('Timetable coming soon!')">
-      <span class="material-symbols-outlined">calendar_today</span>
-      <span>Timetable</span>
-    </a>
-    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-all duration-200 rounded-xl" href="#" onclick="showToast('Settings coming soon!')">
-      <span class="material-symbols-outlined">settings</span>
-      <span>Settings</span>
-    </a>
-    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200 rounded-xl" href="/logout">
-      <span class="material-symbols-outlined">logout</span>
-      <span>Logout</span>
-    </a>
-  </nav>
-
-  <div class="mt-auto p-4 bg-primary-fixed rounded-2xl">
-    <p class="text-on-primary-fixed font-bold text-xs mb-2">Upgrade to Pro</p>
-    <p class="text-on-primary-fixed-variant text-[11px] mb-3">Unlock AI Tutoring &amp; Offline Mode</p>
-    <button class="w-full bg-primary text-white py-2 rounded-lg text-xs font-bold shadow-lg shadow-primary/20" onclick="showToast('Pro plan coming soon!')">Go Premium</button>
-  </div>
-</aside>
-
-<!-- Top Header -->
-<header class="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-white/70 backdrop-blur-xl flex justify-between items-center h-20 px-8 lg:w-[calc(100%-16rem)]" style="left:16rem;" id="topHeader">
-  <!-- Hamburger for mobile -->
-  <button class="lg:hidden w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors" onclick="toggleSidebar()">
-    <span class="material-symbols-outlined text-on-surface-variant">menu</span>
-  </button>
-
-  <div class="hidden md:flex items-center bg-surface-container-low px-4 py-2.5 rounded-full w-96">
-    <span class="material-symbols-outlined text-outline mr-2 text-xl">search</span>
-    <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline" placeholder="Search courses, notes, or tasks..." type="text"/>
-  </div>
-
-  <div class="flex items-center gap-6">
-    <div class="flex gap-4">
-      <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors relative">
-        <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
-        <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
-      </button>
-    </div>
-    <div class="h-8 w-[1px] bg-outline-variant/30"></div>
-
-    <!-- User info -->
-    <div class="flex items-center gap-3 group cursor-pointer relative" onclick="toggleUserDropdown()">
-      <div class="text-right hidden sm:block">
-        <p class="text-sm font-bold text-on-surface">Hi, {{ user.name }}</p>
-        <p class="text-[10px] text-outline font-medium">{{ user.level }}</p>
-      </div>
-      <div class="relative">
-        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center ring-2 ring-primary/10 group-hover:ring-primary transition-all">
-          <span class="text-white font-black text-sm" id="headerInitials">??</span>
-        </div>
-        <div class="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
-          <span class="material-symbols-outlined text-[12px] text-primary" style="font-variation-settings:'FILL' 1;">expand_more</span>
-        </div>
-      </div>
-
-      <!-- Dropdown -->
-      <div id="userDropdown" class="hidden absolute right-0 top-14 w-44 bg-white rounded-2xl shadow-xl border border-outline-variant/10 overflow-hidden z-50">
-        <a href="#" class="flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors">
-          <span class="material-symbols-outlined text-base">person</span> Profile
-        </a>
-        <a href="#" onclick="showToast('Settings coming soon!')" class="flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors">
-          <span class="material-symbols-outlined text-base">settings</span> Settings
-        </a>
-        <div class="border-t border-outline-variant/10"></div>
-        <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-sm text-error hover:bg-red-50 transition-colors">
-          <span class="material-symbols-outlined text-base">logout</span> Logout
-        </a>
-      </div>
-    </div>
-  </div>
-</header>
-
-<!-- Main Content -->
-<main class="ml-64 pt-24 p-8 min-h-screen" id="mainContent">
-
-  <!-- Welcome Banner -->
-  <section class="relative overflow-hidden bg-gradient-to-r from-[#1A1A2E] to-[#3713EC] rounded-xl p-10 mb-8 flex justify-between items-center shadow-2xl shadow-primary/20">
-    <div class="z-10 relative max-w-lg">
-      <h2 class="text-4xl font-extrabold text-white mb-3" id="welcomeMsg">Good morning, {{ user.name }} 👋</h2>
-      <p class="text-primary-fixed text-lg font-medium opacity-90" id="bannerSubtitle">Loading your sessions...</p>
-      <button id="resumeBtn" class="mt-6 px-8 py-3 bg-white text-primary font-bold rounded-full hover:scale-105 transition-transform hidden">
-        Resume studying
-      </button>
-    </div>
-    <div class="hidden lg:block relative z-10 w-64 h-64 opacity-90">
-      <img class="w-full h-full object-contain filter drop-shadow-2xl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_FP8kQ2aU1MGuw4YQaTTPRIzzB1b8HS-utphis8qK4sU1SfV5udOthwyXEu428qIY_-mU5SDkkJnTMAQlKAxVLOKAAYLoFLyY3ZFqmQDFLFC3IkNZ207t6TeMPmmQ5E4CCW0BBouUghx2pkaUbVvEhBmNnA79apykgJM7Lg5vNfZldKz1uhhhywgHZ3Bo-1lFNlmQutTOk_LmHTYY94QN7j_3xLoPvC-e9eHe71ypdIg9oLw1AP-9hCRBSXhDv5o7AuB6kC6kcs0" alt="Study illustration"/>
-    </div>
-    <div class="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4"></div>
-    <div class="absolute bottom-0 right-1/4 w-48 h-48 bg-secondary/10 rounded-full translate-y-1/2"></div>
-  </section>
-
-  <!-- Stats Row -->
-  <section class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
-      <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined text-primary">menu_book</span>
-      </div>
-      <div>
-        <p class="text-outline text-xs font-bold uppercase tracking-wider">Active Topics</p>
-        <p class="text-2xl font-extrabold text-on-surface" id="statTopics">—</p>
-      </div>
-    </div>
-    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
-      <div class="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined text-green-600">task_alt</span>
-      </div>
-      <div>
-        <p class="text-outline text-xs font-bold uppercase tracking-wider">Subjects</p>
-        <p class="text-2xl font-extrabold text-on-surface" id="statSubjects">—</p>
-      </div>
-    </div>
-    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
-      <div class="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined text-orange-600">local_fire_department</span>
-      </div>
-      <div>
-        <p class="text-outline text-xs font-bold uppercase tracking-wider">Study Streak</p>
-        <p class="text-2xl font-extrabold text-on-surface" id="statStreak">—</p>
-      </div>
-    </div>
-    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
-      <div class="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined text-purple-600">emoji_events</span>
-      </div>
-      <div>
-        <p class="text-outline text-xs font-bold uppercase tracking-wider">Level</p>
-        <p class="text-2xl font-extrabold text-on-surface" id="statLevel">—</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Main Grid -->
-  <div class="grid grid-cols-12 gap-8 mb-10">
-
-    <!-- Left Column -->
-    <div class="col-span-12 lg:col-span-8 space-y-8">
-
-      <!-- Start Studying Card -->
-      <div class="bg-surface-container-lowest rounded-xl overflow-hidden border-t-4 border-primary shadow-sm">
-        <div class="p-8">
-          <div class="flex items-center justify-between mb-8">
-            <h3 class="text-xl font-bold text-on-surface">Start Studying</h3>
-            <span class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">QUICK START</span>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div class="space-y-2">
-              <label class="text-xs font-bold text-outline">SELECT SUBJECT</label>
-              <div class="relative">
-                <select id="subjectSelect" class="w-full h-14 bg-surface-container-low border-none rounded-xl text-on-surface font-semibold focus:ring-2 focus:ring-primary/20 appearance-none pl-4 pr-10">
-                  <option value="">Select a Subject</option>
-                  {% for subject in user.subjects %}
-                  <option value="{{ subject }}">{{ subject }}</option>
-                  {% endfor %}
-                </select>
-                <span class="material-symbols-outlined absolute right-4 top-4 text-outline pointer-events-none">expand_more</span>
-              </div>
-            </div>
-            <div class="space-y-2">
-              <label class="text-xs font-bold text-outline">CHOOSE TOPIC</label>
-              <div class="relative">
-                <select id="topicSelect" disabled class="w-full h-14 bg-surface-container-low border-none rounded-xl text-on-surface font-semibold focus:ring-2 focus:ring-primary/20 appearance-none pl-4 pr-10 disabled:opacity-50">
-                  <option value="">Select a topic</option>
-                </select>
-                <span class="material-symbols-outlined absolute right-4 top-4 text-outline pointer-events-none">expand_more</span>
-              </div>
-            </div>
-          </div>
-          <button id="startBtn" onclick="handleStartSession()" class="w-full h-14 bg-gradient-to-r from-[#3713EC] to-[#6B21A8] text-white font-bold rounded-xl shadow-xl shadow-primary/20 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-3 group">
-            <span id="startBtnText">Start Reading</span>
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" id="startBtnIcon">arrow_forward</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Ask AI + Upload Row -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div onclick="openAIChatGeneral()" class="bg-[#3713EC] rounded-xl p-8 text-white relative overflow-hidden group cursor-pointer shadow-lg hover:shadow-primary/40 hover:-translate-y-1 transition-all">
-          <div class="relative z-10">
-            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6">
-              <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">smart_toy</span>
-            </div>
-            <h4 class="text-2xl font-bold mb-2">Ask AI Anything</h4>
-            <p class="text-primary-fixed opacity-80 text-sm leading-relaxed">Stuck on a problem? Get instant explanations from EduSpark AI.</p>
-            <div class="mt-8 flex items-center gap-2 font-bold text-sm">
-              <span>Launch Chat</span>
-              <span class="material-symbols-outlined">arrow_outward</span>
-            </div>
-          </div>
-          <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
-        </div>
-
-        <div class="bg-surface-container-lowest rounded-xl p-8 group cursor-pointer border border-outline-variant/10 hover:border-primary/30 hover:-translate-y-1 transition-all shadow-sm" onclick="document.getElementById('assignmentFileInput').click()">
-          <div class="w-12 h-12 bg-surface-container-low rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary/5 transition-colors">
-            <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">cloud_upload</span>
-          </div>
-          <h4 class="text-2xl font-bold text-on-surface mb-2">Upload Assignment</h4>
-          <p class="text-outline text-sm leading-relaxed">Submit your homework or scanned papers for grading and feedback.</p>
-          <div class="mt-8 flex items-center gap-2 font-bold text-sm text-primary">
-            <span>Browse Files +</span>
-            <span class="material-symbols-outlined">add</span>
-          </div>
-          <input type="file" id="assignmentFileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png" onchange="openUploadModal(this)"/>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Right Column -->
-    <div class="col-span-12 lg:col-span-4 space-y-8">
-
-      <!-- Profile Card -->
-      <div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
-        <div class="flex flex-col items-center text-center">
-          <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-secondary p-1 mb-4 shadow-xl shadow-primary/10">
-            <div class="w-full h-full rounded-full bg-white flex items-center justify-center">
-              <span class="text-3xl font-black text-primary" id="profileInitials">??</span>
-            </div>
-          </div>
-          <h4 class="text-xl font-extrabold text-on-surface">{{ user.name }}</h4>
-          <div class="mt-2 px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">{{ user.level }}</div>
-          <div class="w-full mt-8 space-y-4">
-            <div class="flex justify-between text-xs font-bold text-outline">
-              <span>WEEKLY PROGRESS</span>
-              <span class="text-primary" id="progressPct">0%</span>
-            </div>
-            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-              <div class="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-700" id="progressBar" style="width:0%"></div>
-            </div>
-            <div class="flex gap-2 justify-center pt-4">
-              <div class="px-4 py-2 bg-surface-container-low rounded-lg text-center">
-                <p class="text-lg font-extrabold text-on-surface leading-tight" id="profileSubjectCount">0</p>
-                <p class="text-[9px] font-bold text-outline uppercase">Subjects</p>
-              </div>
-              <div class="px-4 py-2 bg-surface-container-low rounded-lg text-center">
-                <p class="text-lg font-extrabold text-on-surface leading-tight" id="profileSessionCount">0</p>
-                <p class="text-[9px] font-bold text-outline uppercase">Sessions</p>
-              </div>
-            </div>
-            <p class="italic text-outline text-sm mt-6 border-t border-outline-variant/20 pt-6">"Education is the most powerful weapon which you can use to change the world."</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tasks Widget -->
-      <div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
-        <div class="p-6 border-b border-outline-variant/10 flex justify-between items-center">
-          <h4 class="font-bold text-on-surface flex items-center gap-2">
-            Recent Tasks
-            <span id="taskBadge" class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-full">0 REMAINING</span>
-          </h4>
-          <button onclick="showAddTaskInput()" class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-            <span class="material-symbols-outlined text-sm">add</span>
-          </button>
-        </div>
-
-        <!-- Add task input (hidden by default) -->
-        <div id="addTaskRow" class="hidden p-4 border-b border-outline-variant/10 flex gap-2">
-          <input id="newTaskInput" type="text" placeholder="Task name..." class="flex-1 text-sm border border-outline-variant/30 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface-container-low"/>
-          <button onclick="addTask()" class="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Add</button>
-        </div>
-
-        <div id="tasksList" class="divide-y divide-outline-variant/10 max-h-72 overflow-y-auto">
-          <!-- Tasks rendered by JS -->
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Continue Studying -->
-  <section class="mb-10">
-    <div class="flex items-center justify-between mb-6">
-      <h3 class="text-xl font-bold text-on-surface">Continue Studying</h3>
-      <span class="text-xs text-outline font-medium" id="sessionCountLabel"></span>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="sessionsGrid">
-      <!-- Populated by JS -->
-      <div class="col-span-3 text-center py-10">
-        <div class="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<!-- Toast Notification -->
-<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-on-surface text-inverse-on-surface text-sm font-semibold rounded-full shadow-xl opacity-0 transition-all duration-300 z-[200] pointer-events-none">
-  Message here
-</div>
-
-<!-- AI Chat Modal -->
-<div id="tutorModal" class="fixed inset-0 z-[100] bg-on-background/40 backdrop-blur-sm hidden items-center justify-center p-4 md:p-6">
-  <div class="bg-surface-container-lowest w-full max-w-4xl h-[90vh] max-h-[820px] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-    <!-- Modal Header -->
-    <div class="p-6 bg-primary text-white flex items-center justify-between shrink-0">
-      <div class="flex items-center gap-4">
-        <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-          <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">smart_toy</span>
-        </div>
-        <div>
-          <h3 class="font-bold">EduSpark AI Tutor</h3>
-          <p class="text-[10px] text-primary-fixed opacity-70">Topic: <span id="modalTopic">—</span></p>
-        </div>
-      </div>
-      <button onclick="closeTutorModal()" class="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors">
-        <span class="material-symbols-outlined">close</span>
-      </button>
-    </div>
-
-    <!-- Messages -->
-    <div id="chatMessages" class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
-      <!-- Messages appended here -->
-    </div>
-
-    <!-- Input -->
-    <div class="p-4 md:p-6 border-t border-outline-variant/10 shrink-0">
-      <div class="relative flex items-center bg-surface-container-low rounded-2xl p-2 px-4">
-        <input id="chatInput" type="text" placeholder="Ask anything about your subjects..."
-          class="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3"
-          onkeydown="if(event.key==='Enter') sendMessage();"/>
-        <button onclick="sendMessage()" class="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
-          <span class="material-symbols-outlined">send</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Upload Assignment Modal -->
-<div id="uploadModal" class="fixed inset-0 z-[100] bg-on-background/40 backdrop-blur-sm hidden items-center justify-center p-4 md:p-6">
-  <div class="bg-surface-container-lowest w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col p-8 md:p-10">
-    <div class="flex justify-between items-center mb-8">
-      <div>
-        <h3 class="text-2xl font-bold text-on-surface">Upload Assignment</h3>
-        <p class="text-sm text-outline">Submit your homework for AI review or teacher grading.</p>
-      </div>
-      <button onclick="closeUploadModal()" class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center hover:bg-surface-container transition-colors">
-        <span class="material-symbols-outlined">close</span>
-      </button>
-    </div>
-
-    <div class="border-2 border-dashed border-outline-variant rounded-3xl p-10 flex flex-col items-center justify-center text-center group hover:border-primary hover:bg-primary/5 transition-all cursor-pointer"
-         onclick="document.getElementById('modalFileInput').click()">
-      <div class="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-        <span class="material-symbols-outlined text-4xl text-outline group-hover:text-primary">upload_file</span>
-      </div>
-      <h4 class="text-xl font-bold text-on-surface mb-2">Drag files or select homework pages</h4>
-      <p class="text-sm text-outline max-w-xs">Supported formats: PDF, JPG, PNG. Max file size: 10MB.</p>
-      <input type="file" id="modalFileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png"/>
-      <div class="mt-8 flex gap-4">
-        <button class="px-8 py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20">Browse Files</button>
-      </div>
-    </div>
-
-    <div id="uploadFileInfo" class="hidden mt-8">
-      <div class="bg-surface-container-low p-4 rounded-2xl flex items-center gap-4">
-        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-          <span class="material-symbols-outlined text-primary">description</span>
-        </div>
-        <div class="flex-1">
-          <p class="text-sm font-bold text-on-surface" id="uploadFileName">—</p>
-          <p class="text-[10px] text-outline" id="uploadFileSize">—</p>
-        </div>
-        <button onclick="clearUploadFile()" class="text-error font-bold text-xs">Remove</button>
-      </div>
-      <button onclick="showToast('Assignment upload coming soon!')" class="w-full mt-6 py-4 bg-primary text-white font-extrabold rounded-2xl shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all">
-        Submit Assignment
-      </button>
-    </div>
-  </div>
-</div>
-<script>
-  // ─── User Data from Flask ────────────────────────────────────────────────────
+// ─── User Data from Flask ────────────────────────────────────────────────────
 const USER_NAME    = "{{ user.name }}";
 const USER_LEVEL   = "{{ user.level }}";
 const USER_SUBJECTS = {{ user.subjects | tojson }};
@@ -945,7 +435,7 @@ function handleStartSession() {
 
 
 // ─── Open AI Chat (ask  ai ) ─────────────────────────────────────────
-function openAIChatGeneral() {
+function openAIChat() {
     currentTopic = 'General: Ask me anything';
     
     document.getElementById(`modalTopic`).textContent = `Ask AI Anything`;
@@ -963,12 +453,12 @@ function openAIChatGeneral() {
 }
 
 // ─── Open AI Chat (no topic — general) ───────────────────────────────────────
-function openAIChat() {
-  const subject = document.getElementById('subjectSelect').value;
-  const topic   = document.getElementById('topicSelect').value;
-  const fullTopic = subject && topic ? `${subject}: ${topic}` : (subject ? `${subject}: General` : 'General: Ask me anything');
-  openTutorModal(fullTopic);
-}
+// function openAIChat() {
+//   const subject = document.getElementById('subjectSelect').value;
+//   const topic   = document.getElementById('topicSelect').value;
+//   const fullTopic = subject && topic ? `${subject}: ${topic}` : (subject ? `${subject}: General` : 'General: Ask me anything');
+//   openTutorModal(fullTopic);
+// }
 
 // ─── Tutor Modal ──────────────────────────────────────────────────────────────
 let currentTopic = null;
@@ -989,7 +479,7 @@ async function openTutorModal(topic) {
     const res = await fetch('/api/tutor/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, name:USER_NAME, level:USER_LEVEL })
+      body: JSON.stringify({ topic })
     });
     const data = await res.json();
     removeTypingIndicator();
@@ -1015,7 +505,6 @@ function closeTutorModal() {
   modal.classList.remove('flex');
   currentTopic = null;
 }
-
 async function sendMessage() {
   const input = document.getElementById('chatInput');
   const message = input.value.trim();
@@ -1023,49 +512,41 @@ async function sendMessage() {
 
   appendMessage('user', message);
   input.value = '';
-
   showTypingIndicator();
 
   try {
-    let res;
-
-    if (currentTopic === "General: Ask me anything") {
-      // 🔹 Free chat mode
-      res = await fetch('/api/ask_ai/start', {
+    if (currentTopic === 'General: Ask me anything') {
+      const res = await fetch('/api/ask_ai/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ user_input: message })
       });
+      const data = await res.json();
+      removeTypingIndicator();
+      if (data.success) appendMessage('ai', data.answer);
+      else appendMessage('error', data.message || 'Something went wrong');
+
     } else {
-      // 🔹 Study session mode
-      res = await fetch('/api/tutor/message', {
+      const res = await fetch('/api/tutor/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: currentTopic,
-          message
-        })
+        body: JSON.stringify({ topic: currentTopic, message })
       });
+      const data = await res.json();
+      removeTypingIndicator();
+      if (data.success) {
+        data.messages.forEach((msg, i) =>
+          setTimeout(() => appendMessage('ai', msg), i * 800));
+      } else {
+        appendMessage('error', data.message || 'Something went wrong');
+      }
     }
 
-    const data = await res.json();
+  } catch (err) {
     removeTypingIndicator();
-
-    if (data.success) {
-      appendMessage('ai', data.reply);
-    } else {
-      appendMessage('error', data.message || 'Something went wrong');
-    }
+    appendMessage('error', 'Network error. Try again.');
   }
-    catch (err) {
-    removeTypingIndicator();
-    if (data.success){
-        data.messages.forEach((msg, i))=>setTimeout(() => appendMessage('ai', msg), i * 800));
-    }
-    else{
-        appendMessage('error', 'Network error. Try again.');
-    }
-  }
+}
 
 
 function appendMessage(sender, text) {
@@ -1289,6 +770,3 @@ function fixHeaderLayout() {
 }
 window.addEventListener('resize', fixHeaderLayout);
 fixHeaderLayout();
-</script>
-</body>
-</html>
