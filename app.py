@@ -8,6 +8,7 @@ from sib_api_v3_sdk.rest import ApiException
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from google import genai
+from xai_sdk import Client
 from dotenv import load_dotenv
 import os
 
@@ -67,6 +68,16 @@ def generate_with_fallback(contents):
         except Exception as e2:
             print("Flash LITE FAILED", e2)
             return "Service is currently unavailable. Please try again later."
+        
+#=============GROK=============
+GROK_API_KEY =os.getenv("GROK_API_KEY")
+if not GROK_API_KEY:
+    raise ValueError("GROK_API_KEY environment variable is not set. Please check your .env file.")
+grok_client = Client(
+    api_key=GROK_API_KEY,
+    timeout=3600,
+)
+
 
 # ==================== DB INIT ====================
 def init_db():
@@ -290,6 +301,32 @@ def reset_password(token):
         print(f"Reset error: {e}")
         return jsonify({"success": False, "message": "Server error"}), 500
 
+
+#=============== ASK AI ====================
+@app.route('/api/ask_ai/start', methods=['POST'])
+def ask_ai_anything():
+    if 'user' not in session:
+        return jsonify({"success":False, "message":"Not loged in"}),401
+    try:
+        data = request.get_json()
+        user_input = data.get('user_input')
+        user_input = user_input.strip()
+        if len(user_input) > 1000:
+            return jsonify({"success": False, "message": "Input is too long. Please limit to 1000 characters."}), 400   
+        if not user_input:
+            return jsonify({"success": False, "message": "Input is required"}), 400
+        response= grok_client.chat.completions.create(
+            model="grok-2",
+            messages=[
+                {"role": "system", "content": "You are an highly intelligent and helpful assistant named Quevra AI, designed to provide clear and concise answers to any questions asked by students. Always respond in a friendly, professional, and easy-to-understand manner, regardless of the topic. Your goal is to help students learn and understand concepts effectively."},
+                {"role": "user", "content": user_input}
+            ]
+        )
+        answer= response.choices[0].message.content
+        return jsonify({"success": True, "answer":answer})
+    except Exception as e :
+        print("Grok Error:", e)
+        return jsonify ({"success": False, "message": "Service is currently unavailable. Please try again later."}), 503
 
 # ==================== AI TUTOR ====================
 
