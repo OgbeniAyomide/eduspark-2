@@ -312,7 +312,7 @@
 
       <!-- Ask AI + Upload Row -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div onclick="openAIChatGeneral()" class="bg-[#3713EC] rounded-xl p-8 text-white relative overflow-hidden group cursor-pointer shadow-lg hover:shadow-primary/40 hover:-translate-y-1 transition-all">
+        <div onclick="openAIChat()" class="bg-[#3713EC] rounded-xl p-8 text-white relative overflow-hidden group cursor-pointer shadow-lg hover:shadow-primary/40 hover:-translate-y-1 transition-all">
           <div class="relative z-10">
             <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6">
               <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">smart_toy</span>
@@ -507,9 +507,8 @@
     </div>
   </div>
 </div>
-
 <script>
-// ─── User Data from Flask ────────────────────────────────────────────────────
+  // ─── User Data from Flask ────────────────────────────────────────────────────
 const USER_NAME    = "{{ user.name }}";
 const USER_LEVEL   = "{{ user.level }}";
 const USER_SUBJECTS = {{ user.subjects | tojson }};
@@ -944,12 +943,38 @@ function handleStartSession() {
   openTutorModal(`${subject}: ${topic}`);
 }
 
+
+// ─── Open AI Chat (ask  ai ) ─────────────────────────────────────────
+function openAIChatGeneral() {
+    currentTopic = 'General: Ask me anything';
+    
+    document.getElementById(`modalTopic`).textContent = `Ask AI Anything`;
+
+    const modal = document.getElementById('tutorModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    const chat= document.getElementById('chatMessages');
+    chat.innerHTML = '';
+
+    //_____ welcome message______
+    appendMessage(`ai`, `Hi ${USER_NAME}! I'm Quevra Ai and you can ask me anything(related to your studies) and I'll do my best to help you out. What do you want to learn or discuss today?`);
+
+}
+
 // ─── Open AI Chat (no topic — general) ───────────────────────────────────────
-function openAIChat() {
-  const subject = document.getElementById('subjectSelect').value;
-  const topic   = document.getElementById('topicSelect').value;
-  const fullTopic = subject && topic ? `${subject}: ${topic}` : (subject ? `${subject}: General` : 'General: Ask me anything');
-  openTutorModal(fullTopic);
+const isSpecificTopic = subject && topic;
+
+const fullTopic = isSpecificTopic
+  ? `${subject}: ${topic}`
+  : (subject ? `${subject}: General` : 'General: Ask me anything');
+
+if (!isSpecificTopic) {
+  // 🚫 Don't load sessions
+  startAIChat(fullTopic);
+} else {
+  // ✅ Normal flow
+  loadSessions();
 }
 
 // ─── Tutor Modal ──────────────────────────────────────────────────────────────
@@ -971,7 +996,7 @@ async function openTutorModal(topic) {
     const res = await fetch('/api/tutor/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic })
+      body: JSON.stringify({ topic, name:USER_NAME, level:USER_LEVEL })
     });
     const data = await res.json();
     removeTypingIndicator();
@@ -999,34 +1024,56 @@ function closeTutorModal() {
 }
 
 async function sendMessage() {
-  const input   = document.getElementById('chatInput');
+  const input = document.getElementById('chatInput');
   const message = input.value.trim();
-  if (!message || !currentTopic) return;
+  if (!message) return;
 
   appendMessage('user', message);
   input.value = '';
+
   showTypingIndicator();
 
   try {
-    const res = await fetch('/api/tutor/message', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic: currentTopic, message })
-    });
+    let res;
+
+    if (currentTopic === "General: Ask me anything") {
+      // 🔹 Free chat mode
+      res = await fetch('/api/ask_ai/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+    } else {
+      // 🔹 Study session mode
+      res = await fetch('/api/tutor/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: currentTopic,
+          message
+        })
+      });
+    }
+
     const data = await res.json();
     removeTypingIndicator();
 
     if (data.success) {
-      const messages = Array.isArray(data.messages) ? data.messages : [data.messages];
-      messages.forEach((msg, i) => setTimeout(() => appendMessage('ai', msg), i * 800));
+      appendMessage('ai', data.reply);
     } else {
       appendMessage('error', data.message || 'Something went wrong');
     }
-  } catch (err) {
-    removeTypingIndicator();
-    appendMessage('error', 'Connection error. Please try again.');
   }
-}
+    catch (err) {
+    removeTypingIndicator();
+    if (data.success){
+        data.messages.forEach((msg, i))=>setTimeout(() => appendMessage('ai', msg), i * 800));
+    }
+    else{
+        appendMessage('error', 'Network error. Try again.');
+    }
+  }
+
 
 function appendMessage(sender, text) {
   const chat = document.getElementById('chatMessages');
