@@ -963,7 +963,8 @@ function openAIChatGeneral() {
 }
 
 // ─── Open AI Chat (no topic — general) ───────────────────────────────────────
-const isSpecificTopic = subject && topic;
+function openAIChat(){
+  const isSpecificTopic = subject && topic;
 
 const fullTopic = isSpecificTopic
   ? `${subject}: ${topic}`
@@ -975,6 +976,7 @@ if (!isSpecificTopic) {
 } else {
   // ✅ Normal flow
   loadSessions();
+}
 }
 
 // ─── Tutor Modal ──────────────────────────────────────────────────────────────
