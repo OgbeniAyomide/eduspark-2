@@ -5,6 +5,7 @@ gunicorn
 sib_api_v3_sdk
 xai_sdk
 Werkzeug>=2.3.8
+base64
 resend
 google-genai
 libsql-experimental
