@@ -12,7 +12,7 @@ from xai_sdk import Client
 from dotenv import load_dotenv
 import os
 import base64
-from werkzueg.utils import secure_filename
+from werkzeug.utils import secure_filename
 
 load_dotenv()
 
@@ -584,7 +584,7 @@ def upload_assignment():
     return jsonify({"success": True, "message": "File uploaded successfully"})
 
 
-@app.route('/api/assignment/chat' methods=['POST'])
+@app.route('/api/assignment/chat', methods=['POST'])
 def assignment_chat():
     if 'user'not in session:
         return jsonify({"success":False,"message":"Not logged in"}), 401
@@ -608,7 +608,7 @@ def assignment_chat():
     file_base64= base64.b64encode(file_bytes).decode('utf-8')
     
     mime_types= {
-        'pdf': 'application.pdf',
+        'pdf': 'application/pdf',
         'jpg': 'image/jpeg',
         'jpeg': 'image/jpeg',
         'png': 'image/png'
@@ -632,7 +632,7 @@ def assignment_chat():
                 ]
             },
             {
-                "role":"model"
+                "role":"model",
                 "parts":[{"text": "Understood. I will use the content of the uploaded file to assist with the student's question."}]
             },
             *history,
