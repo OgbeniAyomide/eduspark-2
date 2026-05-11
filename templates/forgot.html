@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Portal - Forgot Password</title>
+    <title>Quevra - Forgot Password</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
@@ -66,12 +66,6 @@
                 <span id="errorText"></span>
             </div>
 
-            <!-- Success Message -->
-            <div id="successMessage" class="hidden mb-4 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 rounded-lg flex items-center gap-2 animate-fade-in-up">
-                <i class="fas fa-check-circle"></i>
-                <span id="successText"></span>
-            </div>
-
             <!-- Forgot Form -->
             <div class="space-y-4">
                 <div>
@@ -95,15 +89,6 @@
             const errorText = document.getElementById('errorText');
             errorText.textContent = message;
             errorDiv.classList.remove('hidden');
-            document.getElementById('successMessage').classList.add('hidden');
-        }
-
-        function showSuccess(message) {
-            const successDiv = document.getElementById('successMessage');
-            const successText = document.getElementById('successText');
-            successText.textContent = message;
-            successDiv.classList.remove('hidden');
-            document.getElementById('errorMessage').classList.add('hidden');
         }
 
         async function handleForgot() {
@@ -126,7 +111,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showSuccess('Reset link sent! Check your email inbox (and spam folder).');
+                    showError('Reset link sent to your email');
                 } else {
                     showError(data.message);
                 }

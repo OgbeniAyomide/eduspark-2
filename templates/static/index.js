@@ -1,0 +1,772 @@
+// ─── User Data from Flask ────────────────────────────────────────────────────
+const USER_NAME    = "{{ user.name }}";
+const USER_LEVEL   = "{{ user.level }}";
+const USER_SUBJECTS = {{ user.subjects | tojson }};
+
+// ─── Subject → Topic map ─────────────────────────────────────────────────────
+const subjectTopics = {
+  "Mathematics": [
+    "Whole Numbers and Number Systems",
+    "Fractions and Decimals",
+    "Ratio, Proportion and Percentages",
+    "Factors, Multiples, LCM, HCF",
+    "Algebraic Expressions and Equations",
+    "Simple and Simultaneous Equations",
+    "Indices and Logarithms",
+    "Sets and Venn Diagrams",
+    "Statistics and Data Representation",
+    "Probability",
+    "Geometry (Lines, Angles, Triangles, Quadrilaterals, Circles)",
+    "Mensuration (Perimeter, Area, Volume, Surface Area)",
+    "Trigonometry",
+    "Graphs and Functions",
+    "Quadratic Equations",
+    "Variation (Direct, Inverse)",
+    "Sequences and Series",
+    "Coordinate Geometry",
+    "Introduction to Calculus (Limits, Differentiation, Integration)",
+    "Matrices and Determinants",
+    "Vectors",
+    "Complex Numbers",
+    "Further Probability and Statistics"
+  ],
+
+  "English Language": [
+    "Parts of Speech",
+    "Sentence Structure and Types",
+    "Tenses and Concord",
+    "Comprehension Skills",
+    "Summary Writing",
+    "Essay Writing (Narrative, Descriptive, Argumentative, Expository)",
+    "Letter Writing (Formal, Informal)",
+    "Vocabulary Development",
+    "Figures of Speech (Simile, Metaphor, Personification)",
+    "Direct and Indirect Speech",
+    "Active and Passive Voice",
+    "Oral English (Phonetics, Stress, Intonation, Reading Aloud)",
+    "Listening and Speaking Skills",
+    "Report Writing",
+    "Story Writing and Composition",
+    "Grammar Exercises and Editing",
+    "Punctuation Rules",
+    "Idioms and Proverbs",
+    "Spelling and Dictation",
+    "Literary Appreciation (Poetry, Prose, Drama)"
+  ],
+
+  "Yoruba Language": [
+    "Ede Yoruba (Alphabet, Sounds, Phonetics)",
+    "Isedale Oro (Word Formation, Root Words)",
+    "Gbolohun (Sentence Construction, Simple & Complex)",
+    "Aroko Kikowe (Essay Writing, Paragraphs)",
+    "Aroko Alaye ati Aroko Alariyanjiyan (Expository & Narrative Essays)",
+    "Itan ati Asa Yoruba (Culture, History, Traditions)",
+    "Litireso Yoruba (Poetry, Prose, Drama)",
+    "Grammar Rules (Tones, Pronouns, Verbs, Adjectives)",
+    "Vocabulary Building",
+    "Idioms, Proverbs, and Sayings",
+    "Reading Comprehension in Yoruba",
+    "Oral Yoruba (Speech, Recitation, Oral Literature)",
+    "Translation (English ↔ Yoruba)",
+    "Composition Writing",
+    "Letter Writing",
+    "Summary and Paraphrasing",
+    "Storytelling Skills",
+    "Dialogue Construction",
+    "Listening and Speaking Practice"
+  ],
+
+  "Physics": [
+    "Motion",
+    "Force and Pressure",
+    "Work, Energy, Power",
+    "Simple Machines",
+    "Heat and Temperature",
+    "Waves (Sound and Light)",
+    "Electricity and Magnetism",
+    "Circuits and Current",
+    "Energy Transfer and Conservation",
+    "Optics (Reflection, Refraction, Lenses)",
+    "Heat Transfer Methods",
+    "Sound Waves and Properties",
+    "Thermodynamics Basics",
+    "Electronics Fundamentals",
+    "Atomic Physics and Radioactivity",
+    "Fluid Mechanics",
+    "Oscillations and Vibrations",
+    "Electromagnetic Induction",
+    "Gravitation",
+    "Modern Physics Concepts"
+  ],
+
+  "Chemistry": [
+    "Matter and Its Properties",
+    "Elements, Compounds, and Mixtures",
+    "Atomic Structure",
+    "Periodic Table",
+    "Chemical Bonding",
+    "Acids, Bases, and Salts",
+    "Organic Chemistry Basics",
+    "Hydrocarbons",
+    "Water and Solutions",
+    "Oxidation and Reduction",
+    "Chemical Reactions and Equations",
+    "Stoichiometry",
+    "Electrochemistry",
+    "Gases and Gas Laws",
+    "Thermochemistry",
+    "Chemical Kinetics",
+    "Environmental Chemistry",
+    "Analytical Chemistry",
+    "Laboratory Techniques"
+  ],
+
+  "Biology": [
+    "Cell Structure and Function",
+    "Nutrition in Plants and Animals",
+    "Human Body Systems (Digestive, Circulatory, Respiratory, Excretory)",
+    "Reproduction (Plant and Animal)",
+    "Genetics and Heredity",
+    "Evolution",
+    "Ecology and Environmental Science",
+    "Microorganisms",
+    "Photosynthesis and Respiration",
+    "Plant Biology",
+    "Animal Physiology",
+    "Disease and Immunity",
+    "Human Health and Hygiene",
+    "Population and Conservation",
+    "Classification of Living Organisms",
+    "Adaptation and Survival",
+    "Biotechnology Basics",
+    "Practical Biology Skills"
+  ],
+
+  "Further Mathematics": [
+    "Complex Numbers",
+    "Matrices",
+    "Vectors",
+    "Differential Equations",
+    "Advanced Probability",
+    "Statistics",
+    "Quadratic and Cubic Functions",
+    "Logarithms and Exponentials",
+    "Trigonometry Identities",
+    "Linear Algebra",
+    "Sequence and Series",
+    "Coordinate Geometry",
+    "Advanced Calculus Concepts"
+  ],
+
+  "Geography": [
+    "Map Reading and Interpretation",
+    "Latitude, Longitude, Time Zones",
+    "Climate and Weather",
+    "Rocks and Minerals",
+    "Soil Types and Formation",
+    "Vegetation and Ecosystems",
+    "Population and Demography",
+    "Economic Geography",
+    "Urbanization and Settlement",
+    "Natural Disasters",
+    "Hydrology and Rivers",
+    "Transport and Communication",
+    "Environmental Issues",
+    "Cartography Basics"
+  ],
+
+  "Economics": [
+    "Supply and Demand",
+    "Market Structures",
+    "National Income",
+    "Fiscal and Monetary Policy",
+    "Trade and Commerce",
+    "Inflation and Unemployment",
+    "Production and Cost",
+    "Business Cycles",
+    "Money and Banking",
+    "International Trade",
+    "Entrepreneurship",
+    "Economic Development",
+    "Pricing and Revenue"
+  ],
+
+  "Government": [
+    "Arms of Government",
+    "Constitution",
+    "Political Parties",
+    "Electoral Systems",
+    "Federalism",
+    "Legislature Functions",
+    "Executive Functions",
+    "Judiciary Functions",
+    "Human Rights and Responsibilities",
+    "Public Administration",
+    "International Relations",
+    "Democracy and Governance"
+  ],
+
+  "Agricultural Science": [
+    "Soil Science",
+    "Crop Production",
+    "Animal Husbandry",
+    "Farm Management",
+    "Pest and Disease Control",
+    "Planting Techniques",
+    "Irrigation and Drainage",
+    "Post-Harvest Handling",
+    "Agricultural Economics",
+    "Livestock Nutrition",
+    "Husbandry Practices",
+    "Farm Mechanization"
+  ],
+
+  "Civic Education": [
+    "Human Rights",
+    "Democracy",
+    "Rule of Law",
+    "Citizenship",
+    "National Values",
+    "Patriotism and Unity",
+    "Social Responsibilities",
+    "Leadership and Integrity",
+    "Conflict Resolution",
+    "Community Development"
+  ],
+
+  "Literature in English": [
+    "Poetry",
+    "Drama",
+    "Prose",
+    "Literary Devices",
+    "Comprehension",
+    "Character Analysis",
+    "Plot Structure",
+    "Themes and Motifs",
+    "Historical Context",
+    "Literary Criticism"
+  ],
+
+  "Animal Husbandry": [
+    "Livestock Management",
+    "Animal Nutrition",
+    "Veterinary Science",
+    "Breeding and Reproduction",
+    "Disease Prevention",
+    "Housing and Shelter",
+    "Record Keeping",
+    "Marketing of Animal Products"
+  ]
+};
+
+// Subject colour map
+const subjectColors = {
+  "Mathematics": "blue", "Physics": "orange", "Biology": "green",
+  "Chemistry": "purple", "English Language": "pink", "Further Mathematics": "indigo",
+  "Geography": "teal", "Economics": "amber", "Government": "cyan",
+  "default": "indigo"
+};
+
+// ─── On Load ─────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setGreeting();
+  setInitials();
+  setStats();
+  populateSubjectDropdown();
+  loadActiveSessions();
+  loadTasks();
+});
+
+// ─── Greeting ────────────────────────────────────────────────────────────────
+function setGreeting() {
+  const hour = new Date().getHours();
+  const time = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+  document.getElementById('welcomeMsg').textContent = `Good ${time}, ${USER_NAME} 👋`;
+}
+
+// ─── Initials ────────────────────────────────────────────────────────────────
+function setInitials() {
+  const initials = USER_NAME.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+  document.getElementById('profileInitials').textContent = initials;
+  document.getElementById('headerInitials').textContent  = initials;
+}
+
+// ─── Stats ───────────────────────────────────────────────────────────────────
+function setStats() {
+  document.getElementById('statSubjects').textContent = USER_SUBJECTS.length;
+  document.getElementById('statLevel').textContent    = USER_LEVEL;
+  document.getElementById('profileSubjectCount').textContent = USER_SUBJECTS.length;
+}
+
+// ─── Subject Dropdown ────────────────────────────────────────────────────────
+function populateSubjectDropdown() {
+  const select = document.getElementById('subjectSelect');
+  // Clear existing options (keep first placeholder)
+  while (select.options.length > 1) select.remove(1);
+
+  USER_SUBJECTS.forEach(subject => {
+    const opt = document.createElement('option');
+    opt.value = subject;
+    opt.textContent = subject;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener('change', () => {
+    const topicSelect = document.getElementById('topicSelect');
+    const topics = subjectTopics[select.value] || [];
+    topicSelect.innerHTML = '<option value="">Select a topic</option>';
+    topicSelect.disabled = topics.length === 0;
+    topics.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      topicSelect.appendChild(opt);
+    });
+  });
+}
+
+// ─── Sessions ────────────────────────────────────────────────────────────────
+async function loadActiveSessions() {
+  try {
+    const res = await fetch('/api/tutor/sessions');
+    const sessions = await res.json();
+    const grid = document.getElementById('sessionsGrid');
+
+    // Update stats
+    document.getElementById('statTopics').textContent = sessions.length;
+    document.getElementById('profileSessionCount').textContent = sessions.length;
+
+    // Progress bar (capped at 100%, 5 sessions = 100%)
+    const pct = Math.min(Math.round((sessions.length / 5) * 100), 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+
+    // Session count label
+    document.getElementById('sessionCountLabel').textContent =
+      sessions.length > 0 ? `${sessions.length} active session${sessions.length > 1 ? 's' : ''}` : '';
+
+    // Resume button
+    if (sessions.length > 0) {
+      const latest = sessions[0];
+      const topicShort = latest.topic.includes(':') ? latest.topic.split(': ')[1] : latest.topic;
+      const resumeBtn = document.getElementById('resumeBtn');
+      resumeBtn.textContent = `Resume ${topicShort}`;
+      resumeBtn.classList.remove('hidden');
+      resumeBtn.onclick = () => openTutorModal(latest.topic);
+      document.getElementById('bannerSubtitle').textContent =
+        `You have ${sessions.length} active study session${sessions.length > 1 ? 's' : ''}. Keep going.`;
+    } else {
+      document.getElementById('bannerSubtitle').textContent = "Ready to start learning? Pick a subject below.";
+    }
+
+    // Sessions grid
+    if (sessions.length === 0) {
+      grid.innerHTML = `
+        <div class="col-span-3 text-center py-16 text-outline">
+          <span class="material-symbols-outlined text-5xl mb-4 block opacity-30">menu_book</span>
+          <p class="font-bold text-lg">No sessions yet</p>
+          <p class="text-sm mt-1 opacity-70">Pick a subject above to start your first lesson!</p>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = sessions.map(s => {
+      const parts = s.topic.includes(': ') ? s.topic.split(': ') : [s.topic, s.topic];
+      const subject = parts[0], topic = parts[1];
+      const color   = subjectColors[subject] || subjectColors["default"];
+      const date    = new Date(s.last_updated);
+      const now     = new Date();
+      const diffH   = Math.round((now - date) / 36e5);
+      const timeAgo = diffH < 1 ? 'Just now' : diffH < 24 ? `${diffH}h ago`
+                    : diffH < 48 ? 'Yesterday' : date.toLocaleDateString('en-NG', { day:'numeric', month:'short' });
+      return `
+        <div class="bg-surface-container-lowest p-6 rounded-xl border-l-4 border-${color}-500 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <p class="text-[10px] font-extrabold text-outline uppercase mb-1">${subject}</p>
+          <h4 class="text-lg font-bold text-on-surface mb-4">${topic}</h4>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] text-outline font-medium">Last studied: ${timeAgo}</span>
+            <div class="flex items-center gap-2">
+              <button onclick="deleteSession('${s.topic}')"
+                class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-50 text-outline hover:text-error transition-colors"
+                title="Delete session">
+                <span class="material-symbols-outlined text-base">delete</span>
+              </button>
+              <button onclick="openTutorModal('${s.topic}')"
+                class="px-4 py-1.5 border border-primary text-primary text-[10px] font-bold rounded-full hover:bg-primary hover:text-white transition-all">
+                Continue →
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    console.error("Failed to load sessions:", err);
+    document.getElementById('sessionsGrid').innerHTML = `
+      <div class="col-span-3 text-center py-10 text-outline">
+        <p class="text-sm">Failed to load sessions. Please refresh.</p>
+      </div>`;
+  }
+}
+
+// ─── Delete Session ───────────────────────────────────────────────────────────
+async function deleteSession(topic) {
+  if (!confirm(`Delete session "${topic}"?`)) return;
+  try {
+    const res = await fetch(`/api/tutor/sessions/${encodeURIComponent(topic)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Session deleted');
+      loadActiveSessions();
+    } else {
+      showToast('Could not delete session');
+    }
+  } catch (e) {
+    showToast('Error deleting session');
+  }
+}
+
+// ─── Start Session ────────────────────────────────────────────────────────────
+function handleStartSession() {
+  const subject = document.getElementById('subjectSelect').value;
+  const topic   = document.getElementById('topicSelect').value;
+  if (!subject) { showToast('Please select a subject'); return; }
+  if (!topic)   { showToast('Please select a topic');   return; }
+  openTutorModal(`${subject}: ${topic}`);
+}
+
+
+// ─── Open AI Chat (ask  ai ) ─────────────────────────────────────────
+function openAIChat() {
+    currentTopic = 'General: Ask me anything';
+    
+    document.getElementById(`modalTopic`).textContent = `Ask AI Anything`;
+
+    const modal = document.getElementById('tutorModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    const chat= document.getElementById('chatMessages');
+    chat.innerHTML = '';
+
+    //_____ welcome message______
+    appendMessage(`ai`, `Hi ${USER_NAME}! I'm Quevra Ai and you can ask me anything(related to your studies) and I'll do my best to help you out. What do you want to learn or discuss today?`);
+
+}
+
+// ─── Open AI Chat (no topic — general) ───────────────────────────────────────
+// function openAIChat() {
+//   const subject = document.getElementById('subjectSelect').value;
+//   const topic   = document.getElementById('topicSelect').value;
+//   const fullTopic = subject && topic ? `${subject}: ${topic}` : (subject ? `${subject}: General` : 'General: Ask me anything');
+//   openTutorModal(fullTopic);
+// }
+
+// ─── Tutor Modal ──────────────────────────────────────────────────────────────
+let currentTopic = null;
+
+async function openTutorModal(topic) {
+  currentTopic = topic;
+  document.getElementById('modalTopic').textContent = topic;
+  const modal = document.getElementById('tutorModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  document.getElementById('chatMessages').innerHTML = '';
+  showTypingIndicator();
+
+  // Disable start button while loading
+  setStartBtn(true);
+
+  try {
+    const res = await fetch('/api/tutor/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic })
+    });
+    const data = await res.json();
+    removeTypingIndicator();
+
+    if (data.success) {
+      const messages = Array.isArray(data.messages) ? data.messages : [data.messages];
+      messages.forEach((msg, i) => setTimeout(() => appendMessage('ai', msg), i * 800));
+      loadActiveSessions(); // refresh stats + grid
+    } else {
+      appendMessage('error', data.message || 'Failed to start session');
+    }
+  } catch (err) {
+    removeTypingIndicator();
+    appendMessage('error', 'Connection error. Please try again.');
+  } finally {
+    setStartBtn(false);
+  }
+}
+
+function closeTutorModal() {
+  const modal = document.getElementById('tutorModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  currentTopic = null;
+}
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+
+  appendMessage('user', message);
+  input.value = '';
+  showTypingIndicator();
+
+  try {
+    if (currentTopic === 'General: Ask me anything') {
+      const res = await fetch('/api/ask_ai/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_input: message })
+      });
+      const data = await res.json();
+      removeTypingIndicator();
+      if (data.success) appendMessage('ai', data.answer);
+      else appendMessage('error', data.message || 'Something went wrong');
+
+    } else {
+      const res = await fetch('/api/tutor/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: currentTopic, message })
+      });
+      const data = await res.json();
+      removeTypingIndicator();
+      if (data.success) {
+        data.messages.forEach((msg, i) =>
+          setTimeout(() => appendMessage('ai', msg), i * 800));
+      } else {
+        appendMessage('error', data.message || 'Something went wrong');
+      }
+    }
+
+  } catch (err) {
+    removeTypingIndicator();
+    appendMessage('error', 'Network error. Try again.');
+  }
+}
+
+
+function appendMessage(sender, text) {
+  const chat = document.getElementById('chatMessages');
+
+  if (sender === 'user') {
+    const div = document.createElement('div');
+    div.className = 'flex justify-end';
+    div.innerHTML = `
+      <div class="max-w-[75%] bg-primary text-white p-4 rounded-2xl rounded-tr-none shadow-lg text-sm">
+        ${escapeHtml(text)}
+      </div>`;
+    chat.appendChild(div);
+
+  } else if (sender === 'ai') {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex justify-start items-start gap-3';
+    const bubble = document.createElement('div');
+    bubble.className = 'max-w-[75%] bg-surface-container-low text-on-surface p-4 rounded-2xl rounded-tl-none border border-outline-variant/10 text-sm ai-message';
+    bubble.innerHTML = marked.parse(text);
+    wrap.innerHTML = `
+      <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-1">
+        <span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+      </div>`;
+    wrap.appendChild(bubble);
+    chat.appendChild(wrap);
+
+  } else {
+    const div = document.createElement('div');
+    div.className = 'text-center text-error text-sm font-medium py-2';
+    div.textContent = text;
+    chat.appendChild(div);
+  }
+
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function showTypingIndicator() {
+  removeTypingIndicator();
+  const chat = document.getElementById('chatMessages');
+  const wrap = document.createElement('div');
+  wrap.id = 'typingIndicator';
+  wrap.className = 'flex justify-start items-start gap-3';
+  wrap.innerHTML = `
+    <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+      <span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+    </div>
+    <div class="bg-surface-container-low p-4 rounded-2xl rounded-tl-none border border-outline-variant/10 flex gap-1.5 items-center">
+      <span class="w-2 h-2 bg-primary rounded-full typing-dot"></span>
+      <span class="w-2 h-2 bg-primary rounded-full typing-dot"></span>
+      <span class="w-2 h-2 bg-primary rounded-full typing-dot"></span>
+    </div>`;
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function setStartBtn(loading) {
+  const btn  = document.getElementById('startBtn');
+  const text = document.getElementById('startBtnText');
+  const icon = document.getElementById('startBtnIcon');
+  btn.disabled  = loading;
+  text.textContent = loading ? 'Loading...' : 'Start Reading';
+  icon.textContent = loading ? 'hourglass_empty' : 'arrow_forward';
+  btn.classList.toggle('opacity-70', loading);
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+let tasks = [];
+
+function loadTasks() {
+  const stored = localStorage.getItem('eduspark_tasks');
+  tasks = stored ? JSON.parse(stored) : [
+    { id: 1, text: 'Physics Lab Report',   due: 'Tomorrow, 2:00 PM',  priority: 'high',   done: false },
+    { id: 2, text: 'Calculus Assignment 4', due: 'Wed, 10:00 AM',     priority: 'medium', done: false },
+    { id: 3, text: 'Biology Diagram',       due: 'Completed',         priority: 'low',    done: true  },
+  ];
+  renderTasks();
+}
+
+function saveTasks() {
+  localStorage.setItem('eduspark_tasks', JSON.stringify(tasks));
+}
+
+function renderTasks() {
+  const list      = document.getElementById('tasksList');
+  const remaining = tasks.filter(t => !t.done).length;
+  document.getElementById('taskBadge').textContent = `${remaining} REMAINING`;
+
+  if (tasks.length === 0) {
+    list.innerHTML = `<div class="p-6 text-center text-outline text-sm">No tasks yet. Add one above!</div>`;
+    return;
+  }
+
+  const priorityColor = { high: 'bg-error', medium: 'bg-orange-400', low: 'bg-green-400' };
+
+  list.innerHTML = tasks.map(task => `
+    <div class="p-4 flex items-center gap-4 hover:bg-surface-container-low transition-colors group ${task.done ? 'opacity-60' : ''}">
+      <div onclick="toggleTask(${task.id})"
+        class="w-5 h-5 rounded border-2 ${task.done ? 'border-primary bg-primary/10' : 'border-outline-variant group-hover:border-primary'} flex items-center justify-center cursor-pointer transition-colors shrink-0">
+        <span class="material-symbols-outlined text-[12px] ${task.done ? 'text-primary' : 'opacity-0 group-hover:opacity-100 text-primary'}">check</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-on-surface ${task.done ? 'line-through' : ''} truncate">${escapeHtml(task.text)}</p>
+        <p class="text-[10px] text-outline font-medium">${task.due}</p>
+      </div>
+      <div class="w-2 h-2 rounded-full shrink-0 ${priorityColor[task.priority] || 'bg-outline'}"></div>
+      <button onclick="deleteTask(${task.id})" class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center transition-all">
+        <span class="material-symbols-outlined text-[14px] text-error">close</span>
+      </button>
+    </div>`).join('');
+}
+
+function toggleTask(id) {
+  const t = tasks.find(t => t.id === id);
+  if (t) { t.done = !t.done; saveTasks(); renderTasks(); }
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  saveTasks();
+  renderTasks();
+}
+
+function showAddTaskInput() {
+  const row = document.getElementById('addTaskRow');
+  row.classList.toggle('hidden');
+  if (!row.classList.contains('hidden')) document.getElementById('newTaskInput').focus();
+}
+
+function addTask() {
+  const input = document.getElementById('newTaskInput');
+  const text  = input.value.trim();
+  if (!text) return;
+  tasks.unshift({ id: Date.now(), text, due: 'No due date', priority: 'medium', done: false });
+  saveTasks();
+  renderTasks();
+  input.value = '';
+  document.getElementById('addTaskRow').classList.add('hidden');
+  showToast('Task added!');
+}
+
+// ─── Upload Modal ─────────────────────────────────────────────────────────────
+function openUploadModal(input) {
+  if (input && input.files[0]) showFileInModal(input.files[0]);
+  const modal = document.getElementById('uploadModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function closeUploadModal() {
+  const modal = document.getElementById('uploadModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+function showFileInModal(file) {
+  document.getElementById('uploadFileName').textContent = file.name;
+  document.getElementById('uploadFileSize').textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB • Ready to upload`;
+  document.getElementById('uploadFileInfo').classList.remove('hidden');
+}
+
+function clearUploadFile() {
+  document.getElementById('uploadFileInfo').classList.add('hidden');
+  document.getElementById('assignmentFileInput').value = '';
+  document.getElementById('modalFileInput').value = '';
+}
+
+document.getElementById('modalFileInput').addEventListener('change', function() {
+  if (this.files[0]) showFileInModal(this.files[0]);
+});
+
+// ─── User Dropdown ────────────────────────────────────────────────────────────
+function toggleUserDropdown() {
+  document.getElementById('userDropdown').classList.toggle('hidden');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('[onclick="toggleUserDropdown()"]')) {
+    document.getElementById('userDropdown').classList.add('hidden');
+  }
+});
+
+// ─── Sidebar (mobile) ─────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(10px)';
+  }, 2800);
+}
+
+// Fix header width on mobile
+function fixHeaderLayout() {
+  const header = document.getElementById('topHeader');
+  if (window.innerWidth < 1024) {
+    header.style.left = '0';
+    header.style.width = '100%';
+  } else {
+    header.style.left = '16rem';
+    header.style.width = 'calc(100% - 16rem)';
+  }
+}
+window.addEventListener('resize', fixHeaderLayout);
+fixHeaderLayout();
