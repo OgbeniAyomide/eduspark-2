@@ -632,7 +632,7 @@ def assignment_chat():
                 ]
             },
             {
-                "role":"model"'
+                "role":"model"
                 "parts":[{"text": "Understood. I will use the content of the uploaded file to assist with the student's question."}]
             },
             *history,
