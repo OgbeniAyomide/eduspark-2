@@ -2,17 +2,16 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import libsql_experimental as libsql
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 import secrets
+import base64
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from google import genai
-from xai_sdk import Client
 from dotenv import load_dotenv
 import os
-import base64
-from werkzeug.utils import secure_filename
 
 load_dotenv()
 
@@ -70,16 +69,6 @@ def generate_with_fallback(contents):
         except Exception as e2:
             print("Flash LITE FAILED", e2)
             return "Service is currently unavailable. Please try again later."
-        
-#=============GROK=============
-# GROK_API_KEY =os.getenv("GROK_API_KEY")
-# if not GROK_API_KEY:
-#     raise ValueError("GROK_API_KEY environment variable is not set. Please check your .env file.")
-# grok_client = Client(
-#     api_key=GROK_API_KEY,
-#     timeout=3600,
-# )
-
 
 # ==================== DB INIT ====================
 def init_db():
@@ -304,32 +293,6 @@ def reset_password(token):
         return jsonify({"success": False, "message": "Server error"}), 500
 
 
-#=============== ASK AI ====================
-@app.route('/api/ask_ai/start', methods=['POST'])
-def ask_ai_anything():
-    if 'user' not in session:
-        return jsonify({"success":False, "message":"Not loged in"}),401
-    try:
-        data = request.get_json()
-        user_input = data.get('user_input')
-        user_input = user_input.strip()
-        if len(user_input) > 1000:
-            return jsonify({"success": False, "message": "Input is too long. Please limit to 1000 characters."}), 400   
-        if not user_input:
-            return jsonify({"success": False, "message": "Input is required"}), 400
-        response= grok_client.chat.completions.create(
-            model="grok-4.20-reasoning",
-            messages=[
-                {"role": "system", "content": "You are an highly intelligent and helpful assistant named Quevra AI, designed to provide clear and concise answers to any questions asked by students. Always respond in a friendly, professional, and easy-to-understand manner, regardless of the topic. Your goal is to help students learn and understand concepts effectively."},
-                {"role": "user", "content": user_input}
-            ]
-        )
-        answer= response.choices[0].message.content
-        return jsonify({"success": True, "answer":answer})
-    except Exception as e :
-        print("Grok Error:", e)
-        return jsonify ({"success": False, "message": "Service is currently unavailable. Please try again later."}), 503
-
 # ==================== AI TUTOR ====================
 
 @app.route('/api/tutor/start', methods=['POST'])
@@ -553,7 +516,9 @@ def delete_tutor_session(topic):
     except Exception as e:
         print(f"Delete session error: {e}")
         return jsonify({"success": False, "message": "Server error"}), 500
-    
+
+
+
 UPLOAD_FOLDER= 'uploads'
 ALLOWED_EXTENSIONS= {'pdf','jpg', 'jpeg', 'png'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -568,7 +533,7 @@ def upload_assignment():
     if 'file' not in request.files:
         return jsonify({"success": False, "message": "No file part in the request"}), 400
     file= request.files['file']
-    if file.filename== '':
+    if file.filename= '':
         return jsonify({"success": False, "message": "No file selected"}), 400
     if not allowed_file(file.filename):
         return jsonify({"success": False, "message": "File type not allowed"}), 400
@@ -584,7 +549,7 @@ def upload_assignment():
     return jsonify({"success": True, "message": "File uploaded successfully"})
 
 
-@app.route('/api/assignment/chat', methods=['POST'])
+@app.route('/api/assignment/chat' methods=['POST'])
 def assignment_chat():
     if 'user'not in session:
         return jsonify({"success":False,"message":"Not logged in"}), 401
@@ -608,7 +573,7 @@ def assignment_chat():
     file_base64= base64.b64encode(file_bytes).decode('utf-8')
     
     mime_types= {
-        'pdf': 'application/pdf',
+        'pdf': 'application.pdf',
         'jpg': 'image/jpeg',
         'jpeg': 'image/jpeg',
         'png': 'image/png'
@@ -632,7 +597,7 @@ def assignment_chat():
                 ]
             },
             {
-                "role":"model",
+                "role":"model"'
                 "parts":[{"text": "Understood. I will use the content of the uploaded file to assist with the student's question."}]
             },
             *history,
@@ -647,5 +612,7 @@ def assignment_chat():
     except Exception as e:
         print(f"Assignment chat error: {e}")
         return jsonify({"success": False, "message": "Service is currently unavailable. Please try again later."}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True)
