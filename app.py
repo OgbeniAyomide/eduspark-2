@@ -568,7 +568,7 @@ def upload_assignment():
     if 'file' not in request.files:
         return jsonify({"success": False, "message": "No file part in the request"}), 400
     file= request.files['file']
-    if file.filename= '':
+    if file.filename== '':
         return jsonify({"success": False, "message": "No file selected"}), 400
     if not allowed_file(file.filename):
         return jsonify({"success": False, "message": "File type not allowed"}), 400
