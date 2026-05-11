@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import libsql_experimental as libsql
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+import base64
 import secrets
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
