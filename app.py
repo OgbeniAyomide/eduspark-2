@@ -72,13 +72,13 @@ def generate_with_fallback(contents):
             return "Service is currently unavailable. Please try again later."
         
 #=============GROK=============
-GROK_API_KEY =os.getenv("GROK_API_KEY")
-if not GROK_API_KEY:
-    raise ValueError("GROK_API_KEY environment variable is not set. Please check your .env file.")
-grok_client = Client(
-    api_key=GROK_API_KEY,
-    timeout=3600,
-)
+# GROK_API_KEY =os.getenv("GROK_API_KEY")
+# if not GROK_API_KEY:
+#     raise ValueError("GROK_API_KEY environment variable is not set. Please check your .env file.")
+# grok_client = Client(
+#     api_key=GROK_API_KEY,
+#     timeout=3600,
+# )
 
 
 # ==================== DB INIT ====================
