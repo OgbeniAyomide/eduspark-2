@@ -514,7 +514,99 @@ def delete_tutor_session(topic):
     except Exception as e:
         print(f"Delete session error: {e}")
         return jsonify({"success": False, "message": "Server error"}), 500
+UPLOAD_FOLDER= 'uploads'
+ALLOWED_EXTENSIONS= {'pdf','jpg', 'jpeg', 'png'}
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/api/upload', methods=['POST'])
+def upload_assignment():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "Not logged in"}), 401
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "No file part in the request"}), 400
+    file= request.files['file']
+    if file.filename= '':
+        return jsonify({"success": False, "message": "No file selected"}), 400
+    if not allowed_file(file.filename):
+        return jsonify({"success": False, "message": "File type not allowed"}), 400
+    
+    filename= secure_filename(file.filename)
+    save_path= os.path.join(UPLOAD_FOLDER, filename)
+    file.save(save_path) 
+    session['assignment'] = {
+        "filename": filename,
+        "path": save_path
+    }
+    
+    return jsonify({"success": True, "message": "File uploaded successfully"})
 
 
+@app.route('/api/assignment/chat' methods=['POST'])
+def assignment_chat():
+    if 'user'not in session:
+        return jsonify({"success":False,"message":"Not logged in"}), 401
+    if 'assignment' not in session:
+        return jsonify({"success": False, "message": "No assignment uploaded"}), 400
+    
+    data= request.get_json()
+    user_message= data.get('message', '').strip()
+    history= data.get('history', [])
+    if not user_message:
+        return jsonify({"success": False, "message": "Message is required"}), 400
+    
+    file_path= session['assignment']['path']
+    filename=session['assignment']['filename']
+    extension= filename.rsplit('.', 1)[1].lower()
+    
+    
+    with open(file_path, 'rb') as f:
+        file_bytes= f.read()
+    
+    file_base64= base64.b64encode(file_bytes).decode('utf-8')
+    
+    mime_types= {
+        'pdf': 'application.pdf',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png'
+    }
+    mime_type= mime_types.get(extension, 'application/octet-stream')
+    
+    try:
+        contents = [
+            {
+                "role":"user",
+                "parts":[
+                    {
+                        "inline_data":{
+                            "mime_type": mime_type,
+                            "data" : file_base64
+                        }
+                    },
+                    {
+                        "text": "This is the student's uploaded assignment or document. Use it to answer their question"
+                    }
+                ]
+            },
+            {
+                "role":"model"'
+                "parts":[{"text": "Understood. I will use the content of the uploaded file to assist with the student's question."}]
+            },
+            *history,
+            {
+                "role":"user",
+                "parts":[{"text": user_message}]
+            }
+        ]
+        
+        answer= generate_with_fallback(contents)
+        return jsonify({"success": True, "answer": answer})
+    except Exception as e:
+        print(f"Assignment chat error: {e}")
+        return jsonify({"success": False, "message": "Service is currently unavailable. Please try again later."}), 500
+                
 if __name__ == '__main__':
     app.run(debug=True)
