@@ -501,7 +501,7 @@
         </div>
         <button onclick="clearUploadFile()" class="text-error font-bold text-xs">Remove</button>
       </div>
-      <button onclick="showToast('Assignment upload coming soon!')" class="w-full mt-6 py-4 bg-primary text-white font-extrabold rounded-2xl shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all">
+      <button onclick="submitAssignment()" class="w-full mt-6 py-4 bg-primary text-white font-extrabold rounded-2xl shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all">
         Submit Assignment
       </button>
     </div>
@@ -1205,6 +1205,87 @@ function clearUploadFile() {
 document.getElementById('modalFileInput').addEventListener('change', function() {
   if (this.files[0]) showFileInModal(this.files[0]);
 });
+
+
+//_____________submit assignment______________________
+let assignmentChatHistory= []
+async function submitAssignment() {
+  const modalInput = document.getElementById('modalFileInput');
+const mainInput = document.getElementById('assignmentFileInput');
+
+const fileInput = modalInput?.files?.[0] || mainInput?.files?.[0] || null;
+   if (!fileInput) {
+    showToast('Please select a file to upload');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput);
+  try{
+    const res = await fetch('/api/upload',{method: 'POST',body:formData});
+    const data= await res.json();
+
+    if (data.success){
+      assignmentChatHistory=[];
+      closeUploadModal();
+      clearUploadFile();
+      openAssignmentChat(data.filename);
+    }
+    else{
+      showToast(data.message || 'Failed to upload assignment');
+    }
+  } catch(err){
+    console.error(err);
+    showToast('Network error. Please try again.');
+  }
+}
+
+function openAssignmentChat(filename){
+  document.getElementById('modalTopic').textContent = `Assignment: ${filename}`;
+  document.getElementById('chatMessages').innerHTML = '';
+  const modal = document.getElementById('tutorModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  document.getElementById('chatInput').onkeydown= (e) => {
+    if (e.key==='Enter') sendAssignmentMessage();
+  };
+  document.querySelector('#tutorModal button[onclick="sendMessage()"]')
+  ?.setAttribute('onclick', 'sendAssignmentMessage()');
+
+   appendMessage('ai', `I've read your file **${filename}**. Ask me anything about it — I can explain concepts, summarise sections, or answer specific questions!`);
+
+}
+
+async function sendAssignmentMessage() {
+  const input= document.getElementById('chatInput');
+  const message= input.value.trim();
+  if (!message) return;
+  appendMessage('user', message); 
+  input.value = '';
+  showTypingIndicator();
+
+  try{
+    const res= await fetch('/api/assignment_chat', {method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message, history: assignmentChatHistory})});
+
+    const data = await res.json();
+    removeTypingIndicator();
+
+    if(data.success){
+      appendMessage('ai', data.reply);
+      assignmentChatHistory.push({role:'user', parts: [{text: message}]});
+      assignmentChatHistory.push({role:'ai', parts: [{text: data.reply}]});
+    }
+    else{
+      appendMessage('error', data.message || 'Something went wrong');
+    }
+  }
+  catch (err){
+  removeTypingIndicator();
+  appendMessage('error', 'Network error. Try again')
+  }
+}
+
 
 // ─── User Dropdown ────────────────────────────────────────────────────────────
 function toggleUserDropdown() {
