@@ -1266,7 +1266,7 @@ async function sendAssignmentMessage() {
   showTypingIndicator();
 
   try{
-    const res= await fetch('/api/assignment_chat', {method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message, history: assignmentChatHistory})});
+    const res= await fetch('/api/assignment/chat', {method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message, history: assignmentChatHistory})});
 
     const data = await res.json();
     removeTypingIndicator();
