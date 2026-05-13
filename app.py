@@ -605,7 +605,7 @@ def assignment_chat():
         ]
         
         answer= generate_with_fallback(contents)
-        return jsonify({"success": True, "answer": answer})
+        return jsonify({"success": True, "reply": answer})
     except Exception as e:
         print(f"Assignment chat error: {e}")
         return jsonify({"success": False, "message": "Service is currently unavailable. Please try again later."}), 500
