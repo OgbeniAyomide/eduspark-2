@@ -542,7 +542,7 @@ def upload_assignment():
         "filename": filename,
         "path": save_path
     }
-     session['assignment_history'] = []
+    session['assignment_history'] = []
              
     
     return jsonify({"success": True, "message": "File uploaded successfully"})
