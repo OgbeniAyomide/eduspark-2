@@ -516,8 +516,9 @@ def delete_tutor_session(topic):
     except Exception as e:
         print(f"Delete session error: {e}")
         return jsonify({"success": False, "message": "Server error"}), 500
-UPLOAD_FOLDER= 'uploads'
-ALLOWED_EXTENSIONS= {'pdf','jpg', 'jpeg', 'png'}
+
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
@@ -529,22 +530,22 @@ def upload_assignment():
         return jsonify({"success": False, "message": "Not logged in"}), 401
     if 'file' not in request.files:
         return jsonify({"success": False, "message": "No file part in the request"}), 400
-    file= request.files['file']
-    if file.filename== '':
+
+    file = request.files['file']
+    if file.filename == '':
         return jsonify({"success": False, "message": "No file selected"}), 400
     if not allowed_file(file.filename):
         return jsonify({"success": False, "message": "File type not allowed"}), 400
-    
-    filename= secure_filename(file.filename)
-    save_path= os.path.join(UPLOAD_FOLDER, filename)
-    file.save(save_path) 
+
+    filename = secure_filename(file.filename)
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(save_path)
     session['assignment'] = {
         "filename": filename,
         "path": save_path
     }
     session['assignment_history'] = []
-             
-    
+
     return jsonify({"success": True, "message": "File uploaded successfully"})
 
 
@@ -555,33 +556,31 @@ def assignment_chat():
     if 'assignment' not in session:
         return jsonify({"success": False, "message": "No assignment uploaded"}), 400
     
-    data= request.get_json()
-    user_message= data.get('message', '').strip()
+    data = request.get_json()
+    user_message = data.get('message', '').strip()
     if not user_message:
         return jsonify({"success": False, "message": "Message is required"}), 400
-    
-    file_path= session['assignment']['path']
-    filename=session['assignment']['filename']
-    extension= filename.rsplit('.', 1)[1].lower()
-    
-    
+
+    file_path = session['assignment']['path']
+    filename = session['assignment']['filename']
+    extension = filename.rsplit('.', 1)[1].lower()
+
     with open(file_path, 'rb') as f:
-        file_bytes= f.read()
-    
-    file_base64= base64.b64encode(file_bytes).decode('utf-8')
-    
-    mime_types= {
+        file_bytes = f.read()
+
+    file_base64 = base64.b64encode(file_bytes).decode('utf-8')
+
+    mime_types = {
         'pdf': 'application/pdf',
         'jpg': 'image/jpeg',
         'jpeg': 'image/jpeg',
         'png': 'image/png'
     }
-    mime_type= mime_types.get(extension, 'application/octet-stream')
+    mime_type = mime_types.get(extension, 'application/octet-stream')
 
-      
     history = session.get('assignment_history', [])
-    history.appendd({"role": "user", "parts": [{"text": user_message}]})
-    
+    history.append({"role": "user", "parts": [{"text": user_message}]})
+
     try:
         contents = [
             {
@@ -606,7 +605,7 @@ def assignment_chat():
         ]
         
         answer= generate_with_fallback(contents)
-           history.append({"role": "model", "parts": [{"text": answer}]})
+        history.append({"role": "model", "parts": [{"text": answer}]})
         session['assignment_history'] = history
               
         return jsonify({"success": True, "reply": answer})
