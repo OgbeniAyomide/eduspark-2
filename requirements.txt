@@ -7,7 +7,7 @@ xai_sdk
 Werkzeug>=2.3.8
 resend
 google-genai
-libsql-experimental
+libsql-client
 psycopg2-binary
 requests
 python-dotenv
