@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, g
-import libsql_client
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+import libsql_experimental as libsql
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -47,30 +47,8 @@ TURSO_URL       = os.getenv("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
 def get_db():
-    """
-    One libsql_client per request, stored on flask.g and reused for every
-    query in that request, then closed in teardown_db() below. This avoids
-    spinning up a new background thread (which create_client_sync() does
-    internally) on every single query like a naive 1:1 swap would.
-    """
-    if 'db' not in g:
-        g.db = libsql_client.create_client_sync(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
-    return g.db
-
-@app.teardown_appcontext
-def teardown_db(exception=None):
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
-
-def fetchone(conn, sql, params=None):
-    """Mimics the old conn.execute(...).fetchone() behavior."""
-    result = conn.execute(sql, params or [])
-    return result.rows[0] if result.rows else None
-
-def fetchall(conn, sql, params=None):
-    """Mimics the old conn.execute(...).fetchall() behavior."""
-    return conn.execute(sql, params or []).rows
+    conn = libsql.connect(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
+    return conn
 
 # ==================== GEMINI ====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -94,42 +72,38 @@ def generate_with_fallback(contents):
 
 # ==================== DB INIT ====================
 def init_db():
-    # init_db() runs at import time, outside a request context, so it can't
-    # use get_db()/flask.g. It opens its own short-lived client instead.
-    conn = libsql_client.create_client_sync(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-                name               TEXT,
-                email              TEXT UNIQUE,
-                password           TEXT,
-                level              TEXT,
-                subjects           TEXT,
-                reset_token        TEXT,
-                reset_token_expiry TEXT
-            )
-        """)
-        # Safe migrations for existing databases
-        for col in ["reset_token TEXT", "reset_token_expiry TEXT"]:
-            try:
-                conn.execute(f"ALTER TABLE users ADD COLUMN {col}")
-            except Exception:
-                pass
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            name               TEXT,
+            email              TEXT UNIQUE,
+            password           TEXT,
+            level              TEXT,
+            subjects           TEXT,
+            reset_token        TEXT,
+            reset_token_expiry TEXT
+        )
+    """)
+    # Safe migrations for existing databases
+    for col in ["reset_token TEXT", "reset_token_expiry TEXT"]:
+        try:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col}")
+        except Exception:
+            pass
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS tutor_sessions (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id    INTEGER,
-                topic      TEXT NOT NULL,
-                history    TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        """)
-    finally:
-        conn.close()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tutor_sessions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER,
+            topic      TEXT NOT NULL,
+            history    TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    conn.commit()
 
 init_db()
 
@@ -138,7 +112,7 @@ def get_current_user_id():
     if 'user' not in session:
         return None
     conn = get_db()
-    result = fetchone(conn, "SELECT id FROM users WHERE email = ?", (session['user']['email'],))
+    result = conn.execute("SELECT id FROM users WHERE email = ?", (session['user']['email'],)).fetchone()
     return result[0] if result else None
 
 # ==================== PAGE ROUTES ====================
@@ -196,12 +170,13 @@ def signup():
 
     try:
         conn = get_db()
-        if fetchone(conn, "SELECT id FROM users WHERE email = ?", (email,)):
+        if conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone():
             return jsonify({"success": False, "message": "User already exists"})
         conn.execute(
             "INSERT INTO users (name, email, password, level, subjects) VALUES (?, ?, ?, ?, ?)",
             (name, email, hashed, level, subjects)
         )
+        conn.commit()
         return jsonify({"success": True})
     except Exception as e:
         print(f"Signup error: {e}")
@@ -219,9 +194,9 @@ def login():
 
     try:
         conn = get_db()
-        user = fetchone(
-            conn, "SELECT name, email, password, level, subjects FROM users WHERE email = ?", (email,)
-        )
+        user = conn.execute(
+            "SELECT name, email, password, level, subjects FROM users WHERE email = ?", (email,)
+        ).fetchone()
 
         if user and check_password_hash(user[2], password):
             session['user'] = {
@@ -248,7 +223,7 @@ def forgot_password():
 
         email = data.get('email')
         conn  = get_db()
-        user  = fetchone(conn, "SELECT email FROM users WHERE email = ?", (email,))
+        user  = conn.execute("SELECT email FROM users WHERE email = ?", (email,)).fetchone()
 
         if not user:
             return jsonify({"success": False, "message": "No account found with that email address."})
@@ -259,6 +234,7 @@ def forgot_password():
             "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
             (token, expiry, email)
         )
+        conn.commit()
 
         reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
         html = f"""
@@ -294,9 +270,9 @@ def reset_password(token):
             return jsonify({"success": False, "message": "Passwords do not match"})
 
         conn = get_db()
-        user = fetchone(
-            conn, "SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,)
-        )
+        user = conn.execute(
+            "SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,)
+        ).fetchone()
 
         if not user:
             return jsonify({"success": False, "message": "Invalid token"})
@@ -310,6 +286,7 @@ def reset_password(token):
             "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?",
             (hashed, user[0])
         )
+        conn.commit()
         return jsonify({"success": True, "message": "Password reset successful"})
     except Exception as e:
         print(f"Reset error: {e}")
@@ -336,9 +313,9 @@ def start_tutor_session():
 
     try:
         conn     = get_db()
-        existing = fetchone(
-            conn, "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        )
+        existing = conn.execute(
+            "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+        ).fetchone()
 
         if existing:
             history    = json.loads(existing[1])
@@ -421,9 +398,12 @@ Deliver explanations that feel like a high-quality lesson—clear, structured, e
                 "INSERT INTO tutor_sessions (user_id, topic, history) VALUES (?, ?, ?)",
                 (user_id, topic, json.dumps(history))
             )
-            session_id = fetchone(
-                conn, "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-            )[0]
+            conn.commit()
+            session_id = conn.execute(
+                "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+            ).fetchone()[0]
+
+        conn.commit()
 
         ai_message = generate_with_fallback([
             *history,
@@ -441,6 +421,7 @@ Deliver explanations that feel like a high-quality lesson—clear, structured, e
             "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (json.dumps(history), session_id)
         )
+        conn.commit()
 
         return jsonify({"success": True, "messages": messages, "topic": topic})
     except Exception as e:
@@ -466,9 +447,9 @@ def send_tutor_message():
 
     try:
         conn = get_db()
-        row  = fetchone(
-            conn, "SELECT history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        )
+        row  = conn.execute(
+            "SELECT history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+        ).fetchone()
 
         if not row:
             return jsonify({"success": False, "message": "No active session for this topic"}), 404
@@ -488,6 +469,7 @@ def send_tutor_message():
             "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND topic = ?",
             (json.dumps(history), user_id, topic)
         )
+        conn.commit()
 
         return jsonify({"success": True, "messages": messages})
     except Exception as e:
@@ -506,9 +488,9 @@ def get_user_sessions():
 
     try:
         conn     = get_db()
-        sessions = fetchall(
-            conn, "SELECT topic, updated_at FROM tutor_sessions WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
-        )
+        sessions = conn.execute(
+            "SELECT topic, updated_at FROM tutor_sessions WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
+        ).fetchall()
         return jsonify([{"topic": s[0], "last_updated": str(s[1])} for s in sessions])
     except Exception as e:
         print(f"Get sessions error: {e}")
@@ -529,6 +511,7 @@ def delete_tutor_session(topic):
         conn.execute(
             "DELETE FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
         )
+        conn.commit()
         return jsonify({"success": True})
     except Exception as e:
         print(f"Delete session error: {e}")
