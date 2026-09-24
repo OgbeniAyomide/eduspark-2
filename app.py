@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-import libsql_experimental as libsql
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, g
+import libsql_client
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -47,8 +47,30 @@ TURSO_URL       = os.getenv("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
 def get_db():
-    conn = libsql.connect(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
-    return conn
+    """
+    One libsql_client per request, stored on flask.g and reused for every
+    query in that request, then closed in teardown_db() below. This avoids
+    spinning up a new background thread (which create_client_sync() does
+    internally) on every single query like a naive 1:1 swap would.
+    """
+    if 'db' not in g:
+        g.db = libsql_client.create_client_sync(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
+    return g.db
+
+@app.teardown_appcontext
+def teardown_db(exception=None):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+def fetchone(conn, sql, params=None):
+    """Mimics the old conn.execute(...).fetchone() behavior."""
+    result = conn.execute(sql, params or [])
+    return result.rows[0] if result.rows else None
+
+def fetchall(conn, sql, params=None):
+    """Mimics the old conn.execute(...).fetchall() behavior."""
+    return conn.execute(sql, params or []).rows
 
 # ==================== GEMINI ====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -72,38 +94,42 @@ def generate_with_fallback(contents):
 
 # ==================== DB INIT ====================
 def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-            name               TEXT,
-            email              TEXT UNIQUE,
-            password           TEXT,
-            level              TEXT,
-            subjects           TEXT,
-            reset_token        TEXT,
-            reset_token_expiry TEXT
-        )
-    """)
-    # Safe migrations for existing databases
-    for col in ["reset_token TEXT", "reset_token_expiry TEXT"]:
-        try:
-            conn.execute(f"ALTER TABLE users ADD COLUMN {col}")
-        except Exception:
-            pass
+    # init_db() runs at import time, outside a request context, so it can't
+    # use get_db()/flask.g. It opens its own short-lived client instead.
+    conn = libsql_client.create_client_sync(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                name               TEXT,
+                email              TEXT UNIQUE,
+                password           TEXT,
+                level              TEXT,
+                subjects           TEXT,
+                reset_token        TEXT,
+                reset_token_expiry TEXT
+            )
+        """)
+        # Safe migrations for existing databases
+        for col in ["reset_token TEXT", "reset_token_expiry TEXT"]:
+            try:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {col}")
+            except Exception:
+                pass
 
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS tutor_sessions (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id    INTEGER,
-            topic      TEXT NOT NULL,
-            history    TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    """)
-    conn.commit()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS tutor_sessions (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER,
+                topic      TEXT NOT NULL,
+                history    TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+    finally:
+        conn.close()
 
 init_db()
 
@@ -112,7 +138,7 @@ def get_current_user_id():
     if 'user' not in session:
         return None
     conn = get_db()
-    result = conn.execute("SELECT id FROM users WHERE email = ?", (session['user']['email'],)).fetchone()
+    result = fetchone(conn, "SELECT id FROM users WHERE email = ?", (session['user']['email'],))
     return result[0] if result else None
 
 # ==================== PAGE ROUTES ====================
@@ -170,13 +196,12 @@ def signup():
 
     try:
         conn = get_db()
-        if conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone():
+        if fetchone(conn, "SELECT id FROM users WHERE email = ?", (email,)):
             return jsonify({"success": False, "message": "User already exists"})
         conn.execute(
             "INSERT INTO users (name, email, password, level, subjects) VALUES (?, ?, ?, ?, ?)",
             (name, email, hashed, level, subjects)
         )
-        conn.commit()
         return jsonify({"success": True})
     except Exception as e:
         print(f"Signup error: {e}")
@@ -194,9 +219,9 @@ def login():
 
     try:
         conn = get_db()
-        user = conn.execute(
-            "SELECT name, email, password, level, subjects FROM users WHERE email = ?", (email,)
-        ).fetchone()
+        user = fetchone(
+            conn, "SELECT name, email, password, level, subjects FROM users WHERE email = ?", (email,)
+        )
 
         if user and check_password_hash(user[2], password):
             session['user'] = {
@@ -223,7 +248,7 @@ def forgot_password():
 
         email = data.get('email')
         conn  = get_db()
-        user  = conn.execute("SELECT email FROM users WHERE email = ?", (email,)).fetchone()
+        user  = fetchone(conn, "SELECT email FROM users WHERE email = ?", (email,))
 
         if not user:
             return jsonify({"success": False, "message": "No account found with that email address."})
@@ -234,7 +259,6 @@ def forgot_password():
             "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
             (token, expiry, email)
         )
-        conn.commit()
 
         reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
         html = f"""
@@ -270,9 +294,9 @@ def reset_password(token):
             return jsonify({"success": False, "message": "Passwords do not match"})
 
         conn = get_db()
-        user = conn.execute(
-            "SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,)
-        ).fetchone()
+        user = fetchone(
+            conn, "SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,)
+        )
 
         if not user:
             return jsonify({"success": False, "message": "Invalid token"})
@@ -286,7 +310,6 @@ def reset_password(token):
             "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?",
             (hashed, user[0])
         )
-        conn.commit()
         return jsonify({"success": True, "message": "Password reset successful"})
     except Exception as e:
         print(f"Reset error: {e}")
@@ -313,80 +336,56 @@ def start_tutor_session():
 
     try:
         conn     = get_db()
-        existing = conn.execute(
-            "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        ).fetchone()
+        existing = fetchone(
+            conn, "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+        )
 
         if existing:
             history    = json.loads(existing[1])
             session_id = existing[0]
         else:
             system_instruction = f"""
-You are Quevra AI, an advanced academic assistant designed to teach students effectively.
+You are Quevra, an AI learning tutor for Nigerian secondary school students.
 
-You are to teach {topic} to {name}, who is currently at {level}.
+Student:
+- Level: {{user.level}}
+- Subject: {{subject}}
+- Topic: {{topic}}
 
-IDENTITY & GREETING:
-- Always introduce yourself as "Quevra AI"
-- Always greet the student by name at the beginning of each session
-- Make the greeting friendly, natural, and professional
+Your job is to teach the student the selected topic according to their academic level and the Nigerian secondary-school curriculum.
 
-EXAMPLE:
-"Hello {name}, I am Quevra AI. Let us break down this topic together in a way that is clear and easy to understand."
+Teaching rules:
+- Start with a clear definition.
+- Explain the concept progressively from simple to more detailed ideas.
+- Use examples where appropriate.
+- Use tables when they make comparisons or relationships easier to understand.
+- Include formulas, rules, diagrams-in-text, or step-by-step procedures when relevant.
+- Relate examples to situations a Nigerian secondary-school student can understand.
+- Use terminology appropriate for the student's level.
+- Do not assume the student already understands advanced concepts.
+- Do not overwhelm the student with unnecessary information.
+- Prioritize understanding over memorization.
+- Where appropriate, highlight points that are commonly tested in WAEC, NECO, or GCE examinations.
+- Never invent facts, formulas, curriculum requirements, or examination questions.
 
-TEACHING STYLE:
-- Combine the clarity and conversational flow of ChatGPT with the depth and structure of an excellent lecturer
-- Sound natural, human, and engaging
-- Be clear and easy to follow, not robotic
-- Maintain strong academic accuracy and authority
-- Guide the student step-by-step like a teacher in class
+Response structure:
 
-NIGERIAN EDUCATION CONTEXT:
-- Align explanations with WAEC, NECO, and GCE standards
-- Focus on exam relevance and clarity
-- Use familiar and relatable examples when possible
+### Definition
+...
 
-STRUCTURE (STRICTLY FOLLOW):
-1. Definition
-2. Key Concepts (with headings)
-3. Examples
-4. Table (if applicable)
-5. Visual Explanation (if applicable)
-6. Real-life Applications
-7. Simple Summary
+### Explanation
+...
 
-FORMATTING RULES:
-- Use clear headings (##, ###)
-- Use bullet points for clarity
-- Avoid long paragraphs
-- Make the response visually clean and easy to read
+### Example
+...
 
-DEPTH CONTROL:
-- Avoid being too shallow or too complex
-- Explain difficult terms immediately after introducing them
-- Build understanding progressively
+### Key Points
+...
 
-VISUAL LEARNING:
-- When diagrams or structures are involved:
-  → Describe what the student should imagine
-  → Use labels like: [Diagram: ...]
-  → Keep explanations simple and visual
+### Quick Check
+...
 
-TABLE RULES:
-- Use tables for comparisons, classifications, or summaries
-- Keep tables clean and readable
-
-TONE:
-- Smart but simple
-- Friendly but professional
-- Confident, not overhyped
-
-SESSION BEHAVIOR:
-- Greet only at the beginning of a new session
-- Continue naturally in follow-up responses without repeating full introduction
-
-GOAL:
-Deliver explanations that feel like a high-quality lesson—clear, structured, engaging, and tailored specifically for {name} to understand and succeed in exams.
+If the topic requires a different structure, adapt the structure instead of forcing irrelevant sections.
 """
 
             history = [
@@ -398,12 +397,9 @@ Deliver explanations that feel like a high-quality lesson—clear, structured, e
                 "INSERT INTO tutor_sessions (user_id, topic, history) VALUES (?, ?, ?)",
                 (user_id, topic, json.dumps(history))
             )
-            conn.commit()
-            session_id = conn.execute(
-                "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-            ).fetchone()[0]
-
-        conn.commit()
+            session_id = fetchone(
+                conn, "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+            )[0]
 
         ai_message = generate_with_fallback([
             *history,
@@ -421,7 +417,6 @@ Deliver explanations that feel like a high-quality lesson—clear, structured, e
             "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (json.dumps(history), session_id)
         )
-        conn.commit()
 
         return jsonify({"success": True, "messages": messages, "topic": topic})
     except Exception as e:
@@ -447,9 +442,9 @@ def send_tutor_message():
 
     try:
         conn = get_db()
-        row  = conn.execute(
-            "SELECT history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        ).fetchone()
+        row  = fetchone(
+            conn, "SELECT history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+        )
 
         if not row:
             return jsonify({"success": False, "message": "No active session for this topic"}), 404
@@ -469,7 +464,6 @@ def send_tutor_message():
             "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND topic = ?",
             (json.dumps(history), user_id, topic)
         )
-        conn.commit()
 
         return jsonify({"success": True, "messages": messages})
     except Exception as e:
@@ -488,9 +482,9 @@ def get_user_sessions():
 
     try:
         conn     = get_db()
-        sessions = conn.execute(
-            "SELECT topic, updated_at FROM tutor_sessions WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
-        ).fetchall()
+        sessions = fetchall(
+            conn, "SELECT topic, updated_at FROM tutor_sessions WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
+        )
         return jsonify([{"topic": s[0], "last_updated": str(s[1])} for s in sessions])
     except Exception as e:
         print(f"Get sessions error: {e}")
@@ -511,7 +505,6 @@ def delete_tutor_session(topic):
         conn.execute(
             "DELETE FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
         )
-        conn.commit()
         return jsonify({"success": True})
     except Exception as e:
         print(f"Delete session error: {e}")
@@ -536,82 +529,171 @@ def upload_assignment():
         return jsonify({"success": False, "message": "No file selected"}), 400
     if not allowed_file(file.filename):
         return jsonify({"success": False, "message": "File type not allowed"}), 400
-
-    filename = secure_filename(file.filename)
-    save_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(save_path)
-    session['assignment'] = {
-        "filename": filename,
-        "path": save_path
-    }
-    session['assignment_history'] = []
-
-    return jsonify({"success": True, "message": "File uploaded successfully"})
-
-
+    try:
+        original_name= secure_filename(file.filename)
+        extension = original_name.rsplit('.', 1)[1].lower()
+        unique_name = f"{secrets.token_hex(8)}_{original_name}"
+        save_path = os.path.join(UPLOAD_FOLDER, unique_name)
+        
+        file.save(save_path)
+        gemini_file = client.files.upload(file= save_path)
+        
+        session['assignment'] = {
+            "filename": original_name,
+            "path": save_path,
+            "gemini_file_name": gemini_file.name,
+            "gemini_file_uri": gemini_file.uri,
+            "gemini_mime_type": gemini_file.mime_type
+        }
+        session['assignment_history']= []
+        
+        return jsonify({"success": True, "message": "Assignment uploaded successfully"})
+    except Exception as e:
+        print(f"Assignment upload error: {e}")
+        
+        try:
+            if os.path.exists(save_path):
+                os.remove(save_path)
+        except Exception:
+            pass
+        
+        return jsonify({"success": False, "message": "Failed to upload assignment"})
+        
 @app.route('/api/assignment/chat', methods=['POST'])
 def assignment_chat():
-    if 'user'not in session:
-        return jsonify({"success":False,"message":"Not logged in"}), 401
+
+    if 'user' not in session:
+        return jsonify({
+            "success": False,
+            "message": "Not logged in"
+        }), 401
+
     if 'assignment' not in session:
-        return jsonify({"success": False, "message": "No assignment uploaded"}), 400
-    
-    data = request.get_json()
+        return jsonify({
+            "success": False,
+            "message": "No assignment uploaded"
+        }), 400
+
+    data = request.get_json(silent=True) or {}
     user_message = data.get('message', '').strip()
+
     if not user_message:
-        return jsonify({"success": False, "message": "Message is required"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Message is required"
+        }), 400
 
-    file_path = session['assignment']['path']
-    filename = session['assignment']['filename']
-    extension = filename.rsplit('.', 1)[1].lower()
-
-    with open(file_path, 'rb') as f:
-        file_bytes = f.read()
-
-    file_base64 = base64.b64encode(file_bytes).decode('utf-8')
-
-    mime_types = {
-        'pdf': 'application/pdf',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png'
-    }
-    mime_type = mime_types.get(extension, 'application/octet-stream')
-
-    history = session.get('assignment_history', [])
-    history.append({"role": "user", "parts": [{"text": user_message}]})
+    assignment = session['assignment']
 
     try:
+        # Reuse the file already uploaded to Gemini.
+        # No base64 encoding.
+        # No reading the file from disk.
+        # No re-uploading the file.
+        gemini_file = client.files.get(
+            name=assignment['gemini_file_name']
+        )
+
+        history = session.get('assignment_history', [])
+
+        # Keep the conversation history reasonably small.
+        # This prevents the request from becoming progressively larger
+        # after many questions.
+        MAX_HISTORY_MESSAGES = 8
+
+        recent_history = history[-MAX_HISTORY_MESSAGES:]
+
         contents = [
             {
-                "role":"user",
-                "parts":[
+                "role": "user",
+                "parts": [
                     {
-                        "inline_data":{
-                            "mime_type": mime_type,
-                            "data" : file_base64
-                        }
-                    },
-                    {
-                        "text": "This is the student's uploaded assignment or document. Use it to answer their question"
+                        "text": """
+You are Quevra AI, an academic assistant for Nigerian secondary-school
+students.
+
+The student has uploaded an assignment. Use the uploaded assignment as
+the primary source for answering the student's question.
+
+Rules:
+- Identify the relevant question from the assignment.
+- Give the correct answer first.
+- Then explain the answer clearly.
+- Match the explanation to the student's level.
+- Keep the explanation simple but academically accurate.
+- For multiple-choice questions, state the correct option and explain why.
+- For calculations, show the important steps.
+- Do not invent text that is not visible or supported by the assignment.
+- If the assignment image/document is unclear, say which part is unclear.
+- Follow Nigerian secondary-school/WAEC-style academic expectations where
+  applicable.
+"""
                     }
                 ]
             },
             {
-                "role":"model",
-                "parts":[{"text": "Understood. I will use the content of the uploaded file to assist with the student's question."}]
+                "role": "model",
+                "parts": [
+                    {
+                        "text": "Understood. I will use the uploaded assignment to answer the student's questions clearly and accurately."
+                    }
+                ]
             },
-            *history
+
+            *recent_history,
+
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": user_message
+                    }
+                ]
+            },
+
+            # Gemini file reference.
+            gemini_file
         ]
-        
-        answer= generate_with_fallback(contents)
-        history.append({"role": "model", "parts": [{"text": answer}]})
-        session['assignment_history'] = history
-              
-        return jsonify({"success": True, "reply": answer})
+
+        answer = generate_with_fallback(contents)
+
+        # Save only the conversation text.
+        # The actual assignment file is already stored with Gemini.
+        history.append({
+            "role": "user",
+            "parts": [
+                {
+                    "text": user_message
+                }
+            ]
+        })
+
+        history.append({
+            "role": "model",
+            "parts": [
+                {
+                    "text": answer
+                }
+            ]
+        })
+
+        # Keep session history from growing forever.
+        session['assignment_history'] = history[-MAX_HISTORY_MESSAGES:]
+
+        return jsonify({
+            "success": True,
+            "reply": answer
+        })
+
     except Exception as e:
         print(f"Assignment chat error: {e}")
-        return jsonify({"success": False, "message": "Service is currently unavailable. Please try again later."}), 500
-                
+
+        return jsonify({
+            "success": False,
+            "message": "Service is currently unavailable. Please try again later."
+        }), 500
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)
