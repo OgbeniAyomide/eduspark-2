@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, g
-import libsql_experimental
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+import libsql_experimental as libsql
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -47,30 +47,8 @@ TURSO_URL       = os.getenv("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
 def get_db():
-    """
-    One libsql_client per request, stored on flask.g and reused for every
-    query in that request, then closed in teardown_db() below. This avoids
-    spinning up a new background thread (which create_client_sync() does
-    internally) on every single query like a naive 1:1 swap would.
-    """
-    if 'db' not in g:
-        g.db = libsql_client.create_client_sync(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
-    return g.db
-
-@app.teardown_appcontext
-def teardown_db(exception=None):
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
-
-def fetchone(conn, sql, params=None):
-    """Mimics the old conn.execute(...).fetchone() behavior."""
-    result = conn.execute(sql, params or [])
-    return result.rows[0] if result.rows else None
-
-def fetchall(conn, sql, params=None):
-    """Mimics the old conn.execute(...).fetchall() behavior."""
-    return conn.execute(sql, params or []).rows
+    conn = libsql.connect(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
+    return conn
 
 # ==================== GEMINI ====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -94,42 +72,38 @@ def generate_with_fallback(contents):
 
 # ==================== DB INIT ====================
 def init_db():
-    # init_db() runs at import time, outside a request context, so it can't
-    # use get_db()/flask.g. It opens its own short-lived client instead.
-    conn = libsql_client.create_client_sync(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-                name               TEXT,
-                email              TEXT UNIQUE,
-                password           TEXT,
-                level              TEXT,
-                subjects           TEXT,
-                reset_token        TEXT,
-                reset_token_expiry TEXT
-            )
-        """)
-        # Safe migrations for existing databases
-        for col in ["reset_token TEXT", "reset_token_expiry TEXT"]:
-            try:
-                conn.execute(f"ALTER TABLE users ADD COLUMN {col}")
-            except Exception:
-                pass
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            name               TEXT,
+            email              TEXT UNIQUE,
+            password           TEXT,
+            level              TEXT,
+            subjects           TEXT,
+            reset_token        TEXT,
+            reset_token_expiry TEXT
+        )
+    """)
+    # Safe migrations for existing databases
+    for col in ["reset_token TEXT", "reset_token_expiry TEXT"]:
+        try:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col}")
+        except Exception:
+            pass
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS tutor_sessions (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id    INTEGER,
-                topic      TEXT NOT NULL,
-                history    TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        """)
-    finally:
-        conn.close()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tutor_sessions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER,
+            topic      TEXT NOT NULL,
+            history    TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    conn.commit()
 
 init_db()
 
@@ -138,7 +112,7 @@ def get_current_user_id():
     if 'user' not in session:
         return None
     conn = get_db()
-    result = fetchone(conn, "SELECT id FROM users WHERE email = ?", (session['user']['email'],))
+    result = conn.execute("SELECT id FROM users WHERE email = ?", (session['user']['email'],)).fetchone()
     return result[0] if result else None
 
 # ==================== PAGE ROUTES ====================
@@ -196,12 +170,13 @@ def signup():
 
     try:
         conn = get_db()
-        if fetchone(conn, "SELECT id FROM users WHERE email = ?", (email,)):
+        if conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone():
             return jsonify({"success": False, "message": "User already exists"})
         conn.execute(
             "INSERT INTO users (name, email, password, level, subjects) VALUES (?, ?, ?, ?, ?)",
             (name, email, hashed, level, subjects)
         )
+        conn.commit()
         return jsonify({"success": True})
     except Exception as e:
         print(f"Signup error: {e}")
@@ -219,9 +194,9 @@ def login():
 
     try:
         conn = get_db()
-        user = fetchone(
-            conn, "SELECT name, email, password, level, subjects FROM users WHERE email = ?", (email,)
-        )
+        user = conn.execute(
+            "SELECT name, email, password, level, subjects FROM users WHERE email = ?", (email,)
+        ).fetchone()
 
         if user and check_password_hash(user[2], password):
             session['user'] = {
@@ -248,7 +223,7 @@ def forgot_password():
 
         email = data.get('email')
         conn  = get_db()
-        user  = fetchone(conn, "SELECT email FROM users WHERE email = ?", (email,))
+        user  = conn.execute("SELECT email FROM users WHERE email = ?", (email,)).fetchone()
 
         if not user:
             return jsonify({"success": False, "message": "No account found with that email address."})
@@ -259,6 +234,7 @@ def forgot_password():
             "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
             (token, expiry, email)
         )
+        conn.commit()
 
         reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
         html = f"""
@@ -294,9 +270,9 @@ def reset_password(token):
             return jsonify({"success": False, "message": "Passwords do not match"})
 
         conn = get_db()
-        user = fetchone(
-            conn, "SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,)
-        )
+        user = conn.execute(
+            "SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,)
+        ).fetchone()
 
         if not user:
             return jsonify({"success": False, "message": "Invalid token"})
@@ -310,6 +286,7 @@ def reset_password(token):
             "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?",
             (hashed, user[0])
         )
+        conn.commit()
         return jsonify({"success": True, "message": "Password reset successful"})
     except Exception as e:
         print(f"Reset error: {e}")
@@ -336,56 +313,80 @@ def start_tutor_session():
 
     try:
         conn     = get_db()
-        existing = fetchone(
-            conn, "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        )
+        existing = conn.execute(
+            "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+        ).fetchone()
 
         if existing:
             history    = json.loads(existing[1])
             session_id = existing[0]
         else:
             system_instruction = f"""
-You are Quevra, an AI learning tutor for Nigerian secondary school students.
+You are Quevra AI, an advanced academic assistant designed to teach students effectively.
 
-Student:
-- Level: {{user.level}}
-- Subject: {{subject}}
-- Topic: {{topic}}
+You are to teach {topic} to {name}, who is currently at {level}.
 
-Your job is to teach the student the selected topic according to their academic level and the Nigerian secondary-school curriculum.
+IDENTITY & GREETING:
+- Always introduce yourself as "Quevra AI"
+- Always greet the student by name at the beginning of each session
+- Make the greeting friendly, natural, and professional
 
-Teaching rules:
-- Start with a clear definition.
-- Explain the concept progressively from simple to more detailed ideas.
-- Use examples where appropriate.
-- Use tables when they make comparisons or relationships easier to understand.
-- Include formulas, rules, diagrams-in-text, or step-by-step procedures when relevant.
-- Relate examples to situations a Nigerian secondary-school student can understand.
-- Use terminology appropriate for the student's level.
-- Do not assume the student already understands advanced concepts.
-- Do not overwhelm the student with unnecessary information.
-- Prioritize understanding over memorization.
-- Where appropriate, highlight points that are commonly tested in WAEC, NECO, or GCE examinations.
-- Never invent facts, formulas, curriculum requirements, or examination questions.
+EXAMPLE:
+"Hello {name}, I am Quevra AI. Let us break down this topic together in a way that is clear and easy to understand."
 
-Response structure:
+TEACHING STYLE:
+- Combine the clarity and conversational flow of ChatGPT with the depth and structure of an excellent lecturer
+- Sound natural, human, and engaging
+- Be clear and easy to follow, not robotic
+- Maintain strong academic accuracy and authority
+- Guide the student step-by-step like a teacher in class
 
-### Definition
-...
+NIGERIAN EDUCATION CONTEXT:
+- Align explanations with WAEC, NECO, and GCE standards
+- Focus on exam relevance and clarity
+- Use familiar and relatable examples when possible
 
-### Explanation
-...
+STRUCTURE (STRICTLY FOLLOW):
+1. Definition
+2. Key Concepts (with headings)
+3. Examples
+4. Table (if applicable)
+5. Visual Explanation (if applicable)
+6. Real-life Applications
+7. Simple Summary
 
-### Example
-...
+FORMATTING RULES:
+- Use clear headings (##, ###)
+- Use bullet points for clarity
+- Avoid long paragraphs
+- Make the response visually clean and easy to read
 
-### Key Points
-...
+DEPTH CONTROL:
+- Avoid being too shallow or too complex
+- Explain difficult terms immediately after introducing them
+- Build understanding progressively
 
-### Quick Check
-...
+VISUAL LEARNING:
+- When diagrams or structures are involved:
+  → Describe what the student should imagine
+  → Use labels like: [Diagram: ...]
+  → Keep explanations simple and visual
 
-If the topic requires a different structure, adapt the structure instead of forcing irrelevant sections.
+TABLE RULES:
+- Use tables for comparisons, classifications, or summaries
+- Keep tables clean and readable
+
+TONE:
+- Smart but simple
+- Friendly but professional
+- Confident, not overhyped
+
+SESSION BEHAVIOR:
+- Greet only at the beginning of a new session
+- Continue naturally in follow-up responses without repeating full introduction
+
+GOAL:
+Deliver explanations that feel like a high-quality lesson—clear, structured, engaging, and tailored specifically for {name} to understand and succeed in exams.
 """
 
             history = [
@@ -397,9 +398,12 @@ If the topic requires a different structure, adapt the structure instead of forc
                 "INSERT INTO tutor_sessions (user_id, topic, history) VALUES (?, ?, ?)",
                 (user_id, topic, json.dumps(history))
             )
-            session_id = fetchone(
-                conn, "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-            )[0]
+            conn.commit()
+            session_id = conn.execute(
+                "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+            ).fetchone()[0]
+
+        conn.commit()
 
         ai_message = generate_with_fallback([
             *history,
@@ -417,6 +421,7 @@ If the topic requires a different structure, adapt the structure instead of forc
             "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (json.dumps(history), session_id)
         )
+        conn.commit()
 
         return jsonify({"success": True, "messages": messages, "topic": topic})
     except Exception as e:
@@ -442,9 +447,9 @@ def send_tutor_message():
 
     try:
         conn = get_db()
-        row  = fetchone(
-            conn, "SELECT history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        )
+        row  = conn.execute(
+            "SELECT history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
+        ).fetchone()
 
         if not row:
             return jsonify({"success": False, "message": "No active session for this topic"}), 404
@@ -464,6 +469,7 @@ def send_tutor_message():
             "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND topic = ?",
             (json.dumps(history), user_id, topic)
         )
+        conn.commit()
 
         return jsonify({"success": True, "messages": messages})
     except Exception as e:
@@ -482,9 +488,9 @@ def get_user_sessions():
 
     try:
         conn     = get_db()
-        sessions = fetchall(
-            conn, "SELECT topic, updated_at FROM tutor_sessions WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
-        )
+        sessions = conn.execute(
+            "SELECT topic, updated_at FROM tutor_sessions WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
+        ).fetchall()
         return jsonify([{"topic": s[0], "last_updated": str(s[1])} for s in sessions])
     except Exception as e:
         print(f"Get sessions error: {e}")
@@ -505,39 +511,72 @@ def delete_tutor_session(topic):
         conn.execute(
             "DELETE FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
         )
+        conn.commit()
         return jsonify({"success": True})
     except Exception as e:
         print(f"Delete session error: {e}")
         return jsonify({"success": False, "message": "Server error"}), 500
 
+# ==================== ASSIGNMENT UPLOAD ====================
+
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return (
+        '.' in filename
+        and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    )
+
 
 @app.route('/api/upload', methods=['POST'])
 def upload_assignment():
     if 'user' not in session:
-        return jsonify({"success": False, "message": "Not logged in"}), 401
+        return jsonify({
+            "success": False,
+            "message": "Not logged in"
+        }), 401
+
     if 'file' not in request.files:
-        return jsonify({"success": False, "message": "No file part in the request"}), 400
+        return jsonify({
+            "success": False,
+            "message": "No file part in the request"
+        }), 400
 
     file = request.files['file']
+
     if file.filename == '':
-        return jsonify({"success": False, "message": "No file selected"}), 400
+        return jsonify({
+            "success": False,
+            "message": "No file selected"
+        }), 400
+
     if not allowed_file(file.filename):
-        return jsonify({"success": False, "message": "File type not allowed"}), 400
+        return jsonify({
+            "success": False,
+            "message": "File type not allowed"
+        }), 400
+
     try:
-        original_name= secure_filename(file.filename)
+        # Give every upload a unique filename.
+        # This prevents two students uploading files with the same name
+        # from overwriting each other's files.
+        original_name = secure_filename(file.filename)
         extension = original_name.rsplit('.', 1)[1].lower()
+
         unique_name = f"{secrets.token_hex(8)}_{original_name}"
         save_path = os.path.join(UPLOAD_FOLDER, unique_name)
-        
+
         file.save(save_path)
-        gemini_file = client.files.upload(file= save_path)
-        
+
+        # Upload the file ONCE to Gemini's Files API.
+        # We do NOT base64 encode it ourselves.
+        gemini_file = client.files.upload(file=save_path)
+
+        # Save only lightweight references in the Flask session.
         session['assignment'] = {
             "filename": original_name,
             "path": save_path,
@@ -545,20 +584,33 @@ def upload_assignment():
             "gemini_file_uri": gemini_file.uri,
             "gemini_mime_type": gemini_file.mime_type
         }
-        session['assignment_history']= []
-        
-        return jsonify({"success": True, "message": "Assignment uploaded successfully"})
+
+        # Reset conversation whenever a new assignment is uploaded.
+        session['assignment_history'] = []
+
+        return jsonify({
+            "success": True,
+            "message": "Assignment uploaded successfully"
+        })
+
     except Exception as e:
         print(f"Assignment upload error: {e}")
-        
+
+        # Remove local file if Gemini upload failed.
         try:
             if os.path.exists(save_path):
                 os.remove(save_path)
         except Exception:
             pass
-        
-        return jsonify({"success": False, "message": "Failed to upload assignment"})
-        
+
+        return jsonify({
+            "success": False,
+            "message": "Could not process the assignment. Please try again."
+        }), 500
+
+
+# ==================== ASSIGNMENT CHAT ====================
+
 @app.route('/api/assignment/chat', methods=['POST'])
 def assignment_chat():
 
@@ -692,8 +744,6 @@ Rules:
             "success": False,
             "message": "Service is currently unavailable. Please try again later."
         }), 500
-
-
-
+                
 if __name__ == '__main__':
     app.run(debug=True)
