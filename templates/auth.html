@@ -177,38 +177,67 @@
     <script>
         let selectedSubjects = [];
 
-        const JSS_SUBJECTS = [
-            { name: 'Mathematics',        icon: 'fa-calculator' },
-            { name: 'English Language',   icon: 'fa-book-open' },
-            { name: 'Basic Science',       icon: 'fa-flask' },
-            { name: 'Basic Technology',    icon: 'fa-tools' },
-            { name: 'Social Studies',      icon: 'fa-globe-africa' },
-            { name: 'Civic Education',     icon: 'fa-landmark' },
-            { name: 'Agricultural Science',icon: 'fa-seedling' },
-            { name: 'Christian R.S.',      icon: 'fa-cross' },
-            { name: 'Islamic R.S.',        icon: 'fa-moon' },
-            { name: 'Computer Studies',    icon: 'fa-laptop' },
-            { name: 'French',              icon: 'fa-language' },
-            { name: 'Physical Education',  icon: 'fa-running' },
-        ];
+       const JSS_SUBJECTS = [
+    { name: 'Mathematics',              icon: 'fa-calculator' },
+    { name: 'English Studies',          icon: 'fa-book-open' },
+    { name: 'Basic Science',            icon: 'fa-flask' },
+    { name: 'Basic Technology',         icon: 'fa-tools' },
+    { name: 'Computer Studies',         icon: 'fa-laptop' },
+    { name: 'Agricultural Science',     icon: 'fa-seedling' },
+    { name: 'Home Economics',           icon: 'fa-home' },
+    { name: 'Business Studies',         icon: 'fa-briefcase' },
+    { name: 'Civic Education',          icon: 'fa-landmark' },
+    { name: 'Social Studies',           icon: 'fa-globe-africa' },
+    { name: 'Nigerian History',         icon: 'fa-monument' },
+    { name: 'Cultural & Creative Arts', icon: 'fa-palette' },
+    { name: 'Physical & Health Education', icon: 'fa-running' },
+    { name: 'Christian R.S.',           icon: 'fa-cross' },
+    { name: 'Islamic R.S.',             icon: 'fa-moon' },
+    { name: 'Yoruba',                   icon: 'fa-language' },
+    { name: 'Hausa',                    icon: 'fa-language' },
+    { name: 'Igbo',                     icon: 'fa-language' },
+    { name: 'French',                   icon: 'fa-language' },
+    { name: 'Arabic',                   icon: 'fa-language' }
+];
 
-        const SSS_SUBJECTS = [
-            { name: 'Mathematics',         icon: 'fa-calculator' },
-            { name: 'English Language',    icon: 'fa-book-open' },
-            { name: 'Physics',             icon: 'fa-atom' },
-            { name: 'Chemistry',           icon: 'fa-flask' },
-            { name: 'Biology',             icon: 'fa-leaf' },
-            { name: 'Agricultural Science',icon: 'fa-seedling' },
-            { name: 'Economics',           icon: 'fa-chart-line' },
-            { name: 'Government',          icon: 'fa-landmark' },
-            { name: 'Geography',           icon: 'fa-globe-africa' },
-            { name: 'Literature in English', icon: 'fa-feather-alt' },
-            { name: 'Civic Education',     icon: 'fa-balance-scale' },
-            { name: 'Computer Science',    icon: 'fa-laptop' },
-            { name: 'Further Mathematics', icon: 'fa-square-root-alt' },
-            { name: 'Commerce',            icon: 'fa-store' },
-            { name: 'Accounting',          icon: 'fa-file-invoice' },
-        ];
+const SSS_SUBJECTS = [
+    { name: 'Mathematics',              icon: 'fa-calculator' },
+    { name: 'English Language',         icon: 'fa-book-open' },
+    { name: 'Citizenship & Heritage Studies', icon: 'fa-landmark' },
+    { name: 'Digital Technologies',    icon: 'fa-laptop-code' },
+
+    { name: 'Biology',                  icon: 'fa-leaf' },
+    { name: 'Chemistry',                icon: 'fa-flask' },
+    { name: 'Physics',                  icon: 'fa-atom' },
+    { name: 'Agricultural Science',     icon: 'fa-seedling' },
+    { name: 'Animal Husbandry',         icon: 'fa-paw' },
+    { name: 'Further Mathematics',      icon: 'fa-square-root-alt' },
+    { name: 'Geography',                icon: 'fa-globe-africa' },
+    { name: 'Foods & Nutrition',        icon: 'fa-utensils' },
+    { name: 'Health Education',         icon: 'fa-heartbeat' },
+    { name: 'Physical Education',       icon: 'fa-running' },
+    { name: 'Technical Drawing',        icon: 'fa-drafting-compass' },
+
+    { name: 'Literature in English',    icon: 'fa-feather-alt' },
+    { name: 'Government',               icon: 'fa-landmark' },
+    { name: 'History',                  icon: 'fa-monument' },
+    { name: 'Christian R.S.',           icon: 'fa-cross' },
+    { name: 'Islamic R.S.',             icon: 'fa-moon' },
+    { name: 'Yoruba',                   icon: 'fa-language' },
+    { name: 'Hausa',                    icon: 'fa-language' },
+    { name: 'Igbo',                     icon: 'fa-language' },
+    { name: 'French',                   icon: 'fa-language' },
+    { name: 'Arabic',                   icon: 'fa-language' },
+    { name: 'Visual Arts',              icon: 'fa-palette' },
+    { name: 'Music',                    icon: 'fa-music' },
+    { name: 'Home Management',          icon: 'fa-home' },
+    { name: 'Catering Craft',           icon: 'fa-utensils' },
+
+    { name: 'Economics',                icon: 'fa-chart-line' },
+    { name: 'Accounting',               icon: 'fa-file-invoice' },
+    { name: 'Commerce',                 icon: 'fa-store' },
+    { name: 'Marketing',                icon: 'fa-bullhorn' }
+];
 
         function updateSubjects() {
             const level = document.getElementById('signupLevel').value;
