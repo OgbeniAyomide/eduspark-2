@@ -1,651 +1,1335 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-import libsql_experimental as libsql
-import json
-from werkzeug.security import generate_password_hash, check_password_hash
-import secrets
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
-from datetime import datetime, timedelta
-from flask_cors import CORS
-from google import genai
-from xai_sdk import Client
-from dotenv import load_dotenv
-import os
-import base64
-from werkzueg.utils import secure_filename
-
-load_dotenv()
-
-
-#===========BREVO===========
-BREVO_API_KEY = os.getenv("BREVO_API_KEY")
-MAIL_FROM     = os.getenv("MAIL_FROM")
-app = Flask(__name__)
-app.secret_key = "fhdsshdhfskshfdskshffjjshhfsjwwjffhsahdhfeajoffkdmmvbvbsv"
-CORS(app)
-
-configuration = sib_api_v3_sdk.Configuration()
-configuration.api_key['api-key'] = BREVO_API_KEY
-api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
-
-def send_email(to_email, subject, content):
-    try:
-        email = sib_api_v3_sdk.SendSmtpEmail(
-            to=[{"email": to_email}],
-            sender={"email": MAIL_FROM, "name": "Quevra"},
-            subject=subject,
-            html_content=content
-        )
-
-        response = api_instance.send_transac_email(email)
-        print("Email sent:", response)
-
-    except ApiException as e:
-        print("Brevo error:", e)
-
-# ==================== TURSO ====================
-TURSO_URL       = os.getenv("TURSO_DATABASE_URL")
-TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
-
-def get_db():
-    conn = libsql.connect(TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
-    return conn
-
-# ==================== GEMINI ====================
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY environment variable is not set. Please check your .env file.")
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-flash_model      = "gemini-2.5-flash"
-flash_lite_model = "gemini-2.5-flash-lite"
-
-def generate_with_fallback(contents):
-    try:
-        return client.models.generate_content(model=flash_model, contents=contents).text
-    except Exception as e:
-        print(f"Error with {flash_model}: {e}. Falling back to {flash_lite_model}.")
-        try:
-            return client.models.generate_content(model=flash_lite_model, contents=contents).text
-        except Exception as e2:
-            print("Flash LITE FAILED", e2)
-            return "Service is currently unavailable. Please try again later."
-        
-#=============GROK=============
-GROK_API_KEY =os.getenv("GROK_API_KEY")
-if not GROK_API_KEY:
-    raise ValueError("GROK_API_KEY environment variable is not set. Please check your .env file.")
-grok_client = Client(
-    api_key=GROK_API_KEY,
-    timeout=3600,
-)
-
-
-# ==================== DB INIT ====================
-def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-            name               TEXT,
-            email              TEXT UNIQUE,
-            password           TEXT,
-            level              TEXT,
-            subjects           TEXT,
-            reset_token        TEXT,
-            reset_token_expiry TEXT
-        )
-    """)
-    # Safe migrations for existing databases
-    for col in ["reset_token TEXT", "reset_token_expiry TEXT"]:
-        try:
-            conn.execute(f"ALTER TABLE users ADD COLUMN {col}")
-        except Exception:
-            pass
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS tutor_sessions (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id    INTEGER,
-            topic      TEXT NOT NULL,
-            history    TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    """)
-    conn.commit()
-
-init_db()
-
-# ==================== HELPERS ====================
-def get_current_user_id():
-    if 'user' not in session:
-        return None
-    conn = get_db()
-    result = conn.execute("SELECT id FROM users WHERE email = ?", (session['user']['email'],)).fetchone()
-    return result[0] if result else None
-
-# ==================== PAGE ROUTES ====================
-
-@app.route('/')
-def index():
-    return redirect(url_for('landing'))
-
-@app.route('/landing')
-def landing():
-    return render_template('landing.html')
-
-
-@app.route('/auth')
-def auth():
-    return render_template('auth.html')
-
-@app.route('/dashboard')
-def dashboard():
-    if 'user' not in session:
-        return redirect(url_for('auth'))
-    return render_template('index.html', user=session['user'])
-
-@app.route('/forgot-password')
-def forgot_password_page():
-    return render_template('forgot.html')
-
-@app.route('/reset-password/<token>')
-def reset_password_page(token):
-    return render_template('reset.html', token=token)
-
-@app.route('/logout')
-def logout():
-    session.pop('user', None)
-    return redirect(url_for('auth'))
-
-# ==================== AUTH API ====================
-
-@app.route('/api/signup', methods=['POST'])
-def signup():
-    data = request.get_json(force=True, silent=True)
-    if not data:
-        return jsonify({"success": False, "message": "Invalid request format"}), 400
-
-    name     = data.get('name')
-    email    = data.get('email')
-    password = data.get('password')
-    level    = data.get('level')
-    subjects = ','.join(data.get('subjects', []))
-
-    if not all([name, email, password, level]):
-        return jsonify({"success": False, "message": "All fields are required"}), 400
-
-    hashed = generate_password_hash(password)
-
-    try:
-        conn = get_db()
-        if conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone():
-            return jsonify({"success": False, "message": "User already exists"})
-        conn.execute(
-            "INSERT INTO users (name, email, password, level, subjects) VALUES (?, ?, ?, ?, ?)",
-            (name, email, hashed, level, subjects)
-        )
-        conn.commit()
-        return jsonify({"success": True})
-    except Exception as e:
-        print(f"Signup error: {e}")
-        return jsonify({"success": False, "message": "Server error during signup"}), 500
-
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.get_json(force=True, silent=True)
-    if not data:
-        return jsonify({"success": False, "message": "Invalid request format"}), 400
-
-    email    = data.get('email')
-    password = data.get('password')
-
-    try:
-        conn = get_db()
-        user = conn.execute(
-            "SELECT name, email, password, level, subjects FROM users WHERE email = ?", (email,)
-        ).fetchone()
-
-        if user and check_password_hash(user[2], password):
-            session['user'] = {
-                "name":     user[0],
-                "email":    user[1],
-                "level":    user[3],
-                "subjects": user[4].split(',') if user[4] else []
-            }
-            return jsonify({"success": True})
-        return jsonify({"success": False, "message": "Invalid credentials"})
-    except Exception as e:
-        print(f"Login error: {e}")
-        return jsonify({"success": False, "message": "Server error during login"}), 500
-
-
-# ==================== FORGOT / RESET ====================
-
-@app.route('/api/forgot-password', methods=['POST'])
-def forgot_password():
-    try:
-        data = request.get_json(force=True, silent=True)
-        if not data or 'email' not in data:
-            return jsonify({"success": False, "message": "Email is required"})
-
-        email = data.get('email')
-        conn  = get_db()
-        user  = conn.execute("SELECT email FROM users WHERE email = ?", (email,)).fetchone()
-
-        if not user:
-            return jsonify({"success": False, "message": "No account found with that email address."})
-
-        token  = secrets.token_urlsafe(32)
-        expiry = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
-        conn.execute(
-            "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
-            (token, expiry, email)
-        )
-        conn.commit()
-
-        reset_link = f"{request.url_root.rstrip('/')}/reset-password/{token}"
-        html = f"""
-        <h2>Password Reset</h2>
-        <p>Click the link below to reset your password:</p>
-        <a href="{reset_link}">Reset Password</a>
-        <p>This link expires in 15 minutes.</p>
-        """
-
-        send_email(email, "Reset your Quevra password", html)
-
-        return jsonify({
-            "success": True,
-            "message": "Password reset link sent to your email."
-        })
-
-    except Exception as e:
-        print(f"Forgot password error: {e}")
-        return jsonify({
-            "success": False,
-            "message": f"Server error: {str(e)}"
-        })
-
-
-@app.route('/api/reset-password/<token>', methods=['POST'])
-def reset_password(token):
-    try:
-        data     = request.get_json()
-        password = data.get('password')
-        confirm  = data.get('confirm_password')
-
-        if password != confirm:
-            return jsonify({"success": False, "message": "Passwords do not match"})
-
-        conn = get_db()
-        user = conn.execute(
-            "SELECT id, reset_token_expiry FROM users WHERE reset_token = ?", (token,)
-        ).fetchone()
-
-        if not user:
-            return jsonify({"success": False, "message": "Invalid token"})
-
-        expiry = user[1]
-        if not expiry or datetime.fromisoformat(expiry) < datetime.utcnow():
-            return jsonify({"success": False, "message": "Token expired. Please request a new link."})
-
-        hashed = generate_password_hash(password)
-        conn.execute(
-            "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?",
-            (hashed, user[0])
-        )
-        conn.commit()
-        return jsonify({"success": True, "message": "Password reset successful"})
-    except Exception as e:
-        print(f"Reset error: {e}")
-        return jsonify({"success": False, "message": "Server error"}), 500
-
-
-#=============== ASK AI ====================
-@app.route('/api/ask_ai/start', methods=['POST'])
-def ask_ai_anything():
-    if 'user' not in session:
-        return jsonify({"success":False, "message":"Not loged in"}),401
-    try:
-        data = request.get_json()
-        user_input = data.get('user_input')
-        user_input = user_input.strip()
-        if len(user_input) > 1000:
-            return jsonify({"success": False, "message": "Input is too long. Please limit to 1000 characters."}), 400   
-        if not user_input:
-            return jsonify({"success": False, "message": "Input is required"}), 400
-        response= grok_client.chat.completions.create(
-            model="grok-4.20-reasoning",
-            messages=[
-                {"role": "system", "content": "You are an highly intelligent and helpful assistant named Quevra AI, designed to provide clear and concise answers to any questions asked by students. Always respond in a friendly, professional, and easy-to-understand manner, regardless of the topic. Your goal is to help students learn and understand concepts effectively."},
-                {"role": "user", "content": user_input}
-            ]
-        )
-        answer= response.choices[0].message.content
-        return jsonify({"success": True, "answer":answer})
-    except Exception as e :
-        print("Grok Error:", e)
-        return jsonify ({"success": False, "message": "Service is currently unavailable. Please try again later."}), 503
-
-# ==================== AI TUTOR ====================
-
-@app.route('/api/tutor/start', methods=['POST'])
-def start_tutor_session():
-    if 'user' not in session:
-        return jsonify({"success": False, "message": "Not logged in"}), 401
-
-    data  = request.get_json()
-    topic = data.get('topic')
-    name = data.get('name')
-    level = data.get('level')
-    if not topic:
-        return jsonify({"success": False, "message": "Topic required"}), 400
-
-    user_id = get_current_user_id()
-    if not user_id:
-        return jsonify({"success": False, "message": "User not found"}), 404
-
-    try:
-        conn     = get_db()
-        existing = conn.execute(
-            "SELECT id, history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        ).fetchone()
-
-        if existing:
-            history    = json.loads(existing[1])
-            session_id = existing[0]
-        else:
-            system_instruction = f"""
-You are Quevra AI, an advanced academic assistant designed to teach students effectively.
-
-You are to teach {topic} to {name}, who is currently at {level}.
-
-IDENTITY & GREETING:
-- Always introduce yourself as "Quevra AI"
-- Always greet the student by name at the beginning of each session
-- Make the greeting friendly, natural, and professional
-
-EXAMPLE:
-"Hello {name}, I am Quevra AI. Let us break down this topic together in a way that is clear and easy to understand."
-
-TEACHING STYLE:
-- Combine the clarity and conversational flow of ChatGPT with the depth and structure of an excellent lecturer
-- Sound natural, human, and engaging
-- Be clear and easy to follow, not robotic
-- Maintain strong academic accuracy and authority
-- Guide the student step-by-step like a teacher in class
-
-NIGERIAN EDUCATION CONTEXT:
-- Align explanations with WAEC, NECO, and GCE standards
-- Focus on exam relevance and clarity
-- Use familiar and relatable examples when possible
-
-STRUCTURE (STRICTLY FOLLOW):
-1. Definition
-2. Key Concepts (with headings)
-3. Examples
-4. Table (if applicable)
-5. Visual Explanation (if applicable)
-6. Real-life Applications
-7. Simple Summary
-
-FORMATTING RULES:
-- Use clear headings (##, ###)
-- Use bullet points for clarity
-- Avoid long paragraphs
-- Make the response visually clean and easy to read
-
-DEPTH CONTROL:
-- Avoid being too shallow or too complex
-- Explain difficult terms immediately after introducing them
-- Build understanding progressively
-
-VISUAL LEARNING:
-- When diagrams or structures are involved:
-  → Describe what the student should imagine
-  → Use labels like: [Diagram: ...]
-  → Keep explanations simple and visual
-
-TABLE RULES:
-- Use tables for comparisons, classifications, or summaries
-- Keep tables clean and readable
-
-TONE:
-- Smart but simple
-- Friendly but professional
-- Confident, not overhyped
-
-SESSION BEHAVIOR:
-- Greet only at the beginning of a new session
-- Continue naturally in follow-up responses without repeating full introduction
-
-GOAL:
-Deliver explanations that feel like a high-quality lesson—clear, structured, engaging, and tailored specifically for {name} to understand and succeed in exams.
-"""
-
-            history = [
-                {"role": "user",  "parts": [{"text": system_instruction}]},
-                {"role": "model", "parts": [{"text": "Understood! I'll guide you step by step. Let's begin with the first section."}]},
-            ]
-
-            conn.execute(
-                "INSERT INTO tutor_sessions (user_id, topic, history) VALUES (?, ?, ?)",
-                (user_id, topic, json.dumps(history))
-            )
-            conn.commit()
-            session_id = conn.execute(
-                "SELECT id FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-            ).fetchone()[0]
-
-        conn.commit()
-
-        ai_message = generate_with_fallback([
-            *history,
-            {"role": "user", "parts": [{"text": "Please start teaching the first section of the topic now."}]}
-        ])
-
-        messages = [m.strip() for m in ai_message.split('---MESSAGE_BREAK---') if m.strip()]
-        if not messages:
-            messages = [ai_message]
-
-        for msg in messages:
-            history.append({"role": "model", "parts": [{"text": msg}]})
-
-        conn.execute(
-            "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (json.dumps(history), session_id)
-        )
-        conn.commit()
-
-        return jsonify({"success": True, "messages": messages, "topic": topic})
-    except Exception as e:
-        print(f"Tutor start error: {e}")
-        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
-
-
-@app.route('/api/tutor/message', methods=['POST'])
-def send_tutor_message():
-    if 'user' not in session:
-        return jsonify({"success": False, "message": "Not logged in"}), 401
-
-    data    = request.get_json()
-    message = data.get('message')
-    topic   = data.get('topic')
-
-    if not message or not topic:
-        return jsonify({"success": False, "message": "Message and topic required"}), 400
-
-    user_id = get_current_user_id()
-    if not user_id:
-        return jsonify({"success": False, "message": "User not found"}), 404
-
-    try:
-        conn = get_db()
-        row  = conn.execute(
-            "SELECT history FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        ).fetchone()
-
-        if not row:
-            return jsonify({"success": False, "message": "No active session for this topic"}), 404
-
-        history = json.loads(row[0])
-        history.append({"role": "user", "parts": [{"text": message}]})
-
-        ai_reply = generate_with_fallback(history)
-        messages = [m.strip() for m in ai_reply.split('---MESSAGE_BREAK---') if m.strip()]
-        if not messages:
-            messages = [ai_reply]
-
-        for msg in messages:
-            history.append({"role": "model", "parts": [{"text": msg}]})
-
-        conn.execute(
-            "UPDATE tutor_sessions SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND topic = ?",
-            (json.dumps(history), user_id, topic)
-        )
-        conn.commit()
-
-        return jsonify({"success": True, "messages": messages})
-    except Exception as e:
-        print(f"Tutor message error: {e}")
-        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
-
-
-@app.route('/api/tutor/sessions')
-def get_user_sessions():
-    if 'user' not in session:
-        return jsonify([])
-
-    user_id = get_current_user_id()
-    if not user_id:
-        return jsonify([])
-
-    try:
-        conn     = get_db()
-        sessions = conn.execute(
-            "SELECT topic, updated_at FROM tutor_sessions WHERE user_id = ? ORDER BY updated_at DESC", (user_id,)
-        ).fetchall()
-        return jsonify([{"topic": s[0], "last_updated": str(s[1])} for s in sessions])
-    except Exception as e:
-        print(f"Get sessions error: {e}")
-        return jsonify([])
-
-
-@app.route('/api/tutor/sessions/<path:topic>', methods=['DELETE'])
-def delete_tutor_session(topic):
-    if 'user' not in session:
-        return jsonify({"success": False, "message": "Not logged in"}), 401
-
-    user_id = get_current_user_id()
-    if not user_id:
-        return jsonify({"success": False, "message": "User not found"}), 404
-
-    try:
-        conn = get_db()
-        conn.execute(
-            "DELETE FROM tutor_sessions WHERE user_id = ? AND topic = ?", (user_id, topic)
-        )
-        conn.commit()
-        return jsonify({"success": True})
-    except Exception as e:
-        print(f"Delete session error: {e}")
-        return jsonify({"success": False, "message": "Server error"}), 500
-    
-UPLOAD_FOLDER= 'uploads'
-ALLOWED_EXTENSIONS= {'pdf','jpg', 'jpeg', 'png'}
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/api/upload', methods=['POST'])
-def upload_assignment():
-    if 'user' not in session:
-        return jsonify({"success": False, "message": "Not logged in"}), 401
-    if 'file' not in request.files:
-        return jsonify({"success": False, "message": "No file part in the request"}), 400
-    file= request.files['file']
-    if file.filename= '':
-        return jsonify({"success": False, "message": "No file selected"}), 400
-    if not allowed_file(file.filename):
-        return jsonify({"success": False, "message": "File type not allowed"}), 400
-    
-    filename= secure_filename(file.filename)
-    save_path= os.path.join(UPLOAD_FOLDER, filename)
-    file.save(save_path) 
-    session['assignment'] = {
-        "filename": filename,
-        "path": save_path
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quevra Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link rel="manifest" href="/manifest.json">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "secondary-fixed": "#f1dbff",
+          "on-tertiary-fixed-variant": "#8e0048",
+          "on-primary-fixed-variant": "#3100e4",
+          "surface": "#f9f9fb",
+          "on-tertiary-fixed": "#3f001c",
+          "on-primary": "#ffffff",
+          "secondary-container": "#c17bff",
+          "on-tertiary-container": "#ffa3be",
+          "tertiary": "#6f0037",
+          "on-surface-variant": "#464557",
+          "surface-container": "#edeef0",
+          "tertiary-fixed-dim": "#ffb1c7",
+          "on-secondary-fixed": "#2d0050",
+          "surface-bright": "#f9f9fb",
+          "surface-container-low": "#f3f3f5",
+          "outline-variant": "#c7c4da",
+          "primary-container": "#3713ec",
+          "outline": "#777588",
+          "on-primary-container": "#bab6ff",
+          "surface-dim": "#d9dadc",
+          "tertiary-container": "#99004e",
+          "primary-fixed": "#e3dfff",
+          "on-error": "#ffffff",
+          "primary": "#2400b4",
+          "surface-tint": "#4b37fc",
+          "on-error-container": "#93000a",
+          "on-secondary": "#ffffff",
+          "on-primary-fixed": "#110069",
+          "background": "#f9f9fb",
+          "surface-container-high": "#e8e8ea",
+          "error": "#ba1a1a",
+          "primary-fixed-dim": "#c4c0ff",
+          "inverse-on-surface": "#f0f0f2",
+          "surface-container-highest": "#e2e2e4",
+          "error-container": "#ffdad6",
+          "surface-variant": "#e2e2e4",
+          "on-secondary-container": "#4e0084",
+          "secondary": "#803abd",
+          "inverse-surface": "#2f3132",
+          "tertiary-fixed": "#ffd9e2",
+          "on-tertiary": "#ffffff",
+          "secondary-fixed-dim": "#dfb7ff",
+          "on-secondary-fixed-variant": "#661aa3",
+          "on-background": "#1a1c1d",
+          "inverse-primary": "#c4c0ff",
+          "surface-container-lowest": "#ffffff",
+          "on-surface": "#1a1c1d"
+        },
+        fontFamily: {
+          "headline": ["Plus Jakarta Sans"],
+          "body": ["Plus Jakarta Sans"],
+          "label": ["Plus Jakarta Sans"]
+        },
+        borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .glass-nav { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+
+  /* Markdown rendering inside chat */
+  .ai-message p { margin-bottom: 0.5rem; }
+  .ai-message ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+  .ai-message ol { list-style: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+  .ai-message strong { font-weight: 700; }
+  .ai-message h1, .ai-message h2, .ai-message h3 { font-weight: 700; margin-bottom: 0.4rem; }
+  .ai-message code { background: #e8e8ea; border-radius: 4px; padding: 1px 5px; font-size: 0.8em; }
+
+  /* Typing dots */
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+  .typing-dot { animation: bounce 1.2s infinite; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  /* Mobile sidebar overlay */
+  #sidebarOverlay { display: none; }
+  @media (max-width: 1023px) {
+    #sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
+    #sidebar.open { transform: translateX(0); }
+    #sidebarOverlay.open { display: block; }
+    main { margin-left: 0 !important; }
+    header { width: 100% !important; }
+  }
+</style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+
+<!-- Mobile Sidebar Overlay -->
+<div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 lg:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<aside id="sidebar" class="h-screen w-64 fixed left-0 top-0 bg-slate-50 flex flex-col p-6 font-plus-jakarta-sans antialiased text-sm font-medium z-50 shadow-xl">
+<div class="mb-10 flex items-center gap-3">
+    <div class="w-11 h-11 bg-[#4F46E5] rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+      <svg width="28" height="28" viewBox="0 0 34 34">
+          <circle cx="17" cy="17" r="12" fill="none" stroke="white" stroke-width="2.5"></circle>
+          <path d="M26 22 A12 12 0 0 1 29 17" fill="none" stroke="#3713EC" stroke-width="3.5"></path>
+          <line x1="24" y1="24" x2="30" y2="30" stroke="white" stroke-width="2.5" stroke-linecap="round"></line>
+          <circle cx="17" cy="17" r="3" fill="white"></circle>
+      </svg>
+    </div>
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-indigo-900 brand-serif">Quevra</h1>
+      <p class="text-[9px] uppercase tracking-widest text-slate-400 font-extrabold">Learn without limits</p>
+    </div>
+  </div>
+
+  <nav class="flex-1 space-y-2">
+    <a class="flex items-center gap-3 px-4 py-3 text-indigo-700 font-bold bg-white rounded-xl shadow-sm" href="/dashboard">
+      <span class="material-symbols-outlined">dashboard</span>
+      <span>Dashboard</span>
+    </a>
+    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-all duration-200 rounded-xl" href="#" onclick="showToast('Study page coming soon!')">
+      <span class="material-symbols-outlined">menu_book</span>
+      <span>Study</span>
+    </a>
+    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-all duration-200 rounded-xl" href="#" onclick="showToast('Timetable coming soon!')">
+      <span class="material-symbols-outlined">calendar_today</span>
+      <span>Timetable</span>
+    </a>
+    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-all duration-200 rounded-xl" href="#" onclick="showToast('Settings coming soon!')">
+      <span class="material-symbols-outlined">settings</span>
+      <span>Settings</span>
+    </a>
+    <a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200 rounded-xl" href="/logout">
+      <span class="material-symbols-outlined">logout</span>
+      <span>Logout</span>
+    </a>
+  </nav>
+
+  <div class="mt-auto p-4 bg-primary-fixed rounded-2xl">
+    <p class="text-on-primary-fixed font-bold text-xs mb-2">Upgrade to Pro</p>
+    <p class="text-on-primary-fixed-variant text-[11px] mb-3">Unlock AI Tutoring &amp; Offline Mode</p>
+    <button class="w-full bg-primary text-white py-2 rounded-lg text-xs font-bold shadow-lg shadow-primary/20" onclick="showToast('Pro plan coming soon!')">Go Premium</button>
+  </div>
+</aside>
+
+<!-- Top Header -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-white/70 backdrop-blur-xl flex justify-between items-center h-20 px-8 lg:w-[calc(100%-16rem)]" style="left:16rem;" id="topHeader">
+  <!-- Hamburger for mobile -->
+  <button class="lg:hidden w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors" onclick="toggleSidebar()">
+    <span class="material-symbols-outlined text-on-surface-variant">menu</span>
+  </button>
+
+  <div class="hidden md:flex items-center bg-surface-container-low px-4 py-2.5 rounded-full w-96">
+    <span class="material-symbols-outlined text-outline mr-2 text-xl">search</span>
+    <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline" placeholder="Search courses, notes, or tasks..." type="text"/>
+  </div>
+
+  <div class="flex items-center gap-6">
+    <div class="flex gap-4">
+      <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors relative">
+        <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+        <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+      </button>
+    </div>
+    <div class="h-8 w-[1px] bg-outline-variant/30"></div>
+
+    <!-- User info -->
+    <div class="flex items-center gap-3 group cursor-pointer relative" onclick="toggleUserDropdown()">
+      <div class="text-right hidden sm:block">
+        <p class="text-sm font-bold text-on-surface">Hi, {{ user.name }}</p>
+        <p class="text-[10px] text-outline font-medium">{{ user.level }}</p>
+      </div>
+      <div class="relative">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center ring-2 ring-primary/10 group-hover:ring-primary transition-all">
+          <span class="text-white font-black text-sm" id="headerInitials">??</span>
+        </div>
+        <div class="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
+          <span class="material-symbols-outlined text-[12px] text-primary" style="font-variation-settings:'FILL' 1;">expand_more</span>
+        </div>
+      </div>
+
+      <!-- Dropdown -->
+      <div id="userDropdown" class="hidden absolute right-0 top-14 w-44 bg-white rounded-2xl shadow-xl border border-outline-variant/10 overflow-hidden z-50">
+        <a href="#" class="flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors">
+          <span class="material-symbols-outlined text-base">person</span> Profile
+        </a>
+        <a href="#" onclick="showToast('Settings coming soon!')" class="flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors">
+          <span class="material-symbols-outlined text-base">settings</span> Settings
+        </a>
+        <div class="border-t border-outline-variant/10"></div>
+        <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-sm text-error hover:bg-red-50 transition-colors">
+          <span class="material-symbols-outlined text-base">logout</span> Logout
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="ml-64 pt-24 p-8 min-h-screen" id="mainContent">
+
+  <!-- Welcome Banner -->
+  <section class="relative overflow-hidden bg-gradient-to-r from-[#1A1A2E] to-[#3713EC] rounded-xl p-10 mb-8 flex justify-between items-center shadow-2xl shadow-primary/20">
+    <div class="z-10 relative max-w-lg">
+      <h2 class="text-4xl font-extrabold text-white mb-3" id="welcomeMsg">Good morning, {{ user.name }} 👋</h2>
+      <p class="text-primary-fixed text-lg font-medium opacity-90" id="bannerSubtitle">Loading your sessions...</p>
+      <button id="resumeBtn" class="mt-6 px-8 py-3 bg-white text-primary font-bold rounded-full hover:scale-105 transition-transform hidden">
+        Resume studying
+      </button>
+    </div>
+    <div class="hidden lg:block relative z-10 w-64 h-64 opacity-90">
+      <img class="w-full h-full object-contain filter drop-shadow-2xl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_FP8kQ2aU1MGuw4YQaTTPRIzzB1b8HS-utphis8qK4sU1SfV5udOthwyXEu428qIY_-mU5SDkkJnTMAQlKAxVLOKAAYLoFLyY3ZFqmQDFLFC3IkNZ207t6TeMPmmQ5E4CCW0BBouUghx2pkaUbVvEhBmNnA79apykgJM7Lg5vNfZldKz1uhhhywgHZ3Bo-1lFNlmQutTOk_LmHTYY94QN7j_3xLoPvC-e9eHe71ypdIg9oLw1AP-9hCRBSXhDv5o7AuB6kC6kcs0" alt="Study illustration"/>
+    </div>
+    <div class="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4"></div>
+    <div class="absolute bottom-0 right-1/4 w-48 h-48 bg-secondary/10 rounded-full translate-y-1/2"></div>
+  </section>
+
+  <!-- Stats Row -->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
+      <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-primary">menu_book</span>
+      </div>
+      <div>
+        <p class="text-outline text-xs font-bold uppercase tracking-wider">Active Topics</p>
+        <p class="text-2xl font-extrabold text-on-surface" id="statTopics">—</p>
+      </div>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
+      <div class="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-green-600">task_alt</span>
+      </div>
+      <div>
+        <p class="text-outline text-xs font-bold uppercase tracking-wider">Subjects</p>
+        <p class="text-2xl font-extrabold text-on-surface" id="statSubjects">—</p>
+      </div>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
+      <div class="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-orange-600">local_fire_department</span>
+      </div>
+      <div>
+        <p class="text-outline text-xs font-bold uppercase tracking-wider">Study Streak</p>
+        <p class="text-2xl font-extrabold text-on-surface" id="statStreak">—</p>
+      </div>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-4 transition-all hover:-translate-y-1 shadow-sm">
+      <div class="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-purple-600">emoji_events</span>
+      </div>
+      <div>
+        <p class="text-outline text-xs font-bold uppercase tracking-wider">Level</p>
+        <p class="text-2xl font-extrabold text-on-surface" id="statLevel">—</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Grid -->
+  <div class="grid grid-cols-12 gap-8 mb-10">
+
+    <!-- Left Column -->
+    <div class="col-span-12 lg:col-span-8 space-y-8">
+
+      <!-- Start Studying Card -->
+      <div class="bg-surface-container-lowest rounded-xl overflow-hidden border-t-4 border-primary shadow-sm">
+        <div class="p-8">
+          <div class="flex items-center justify-between mb-8">
+            <h3 class="text-xl font-bold text-on-surface">Start Studying</h3>
+            <span class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">QUICK START</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-outline">SELECT SUBJECT</label>
+              <div class="relative">
+                <select id="subjectSelect" class="w-full h-14 bg-surface-container-low border-none rounded-xl text-on-surface font-semibold focus:ring-2 focus:ring-primary/20 appearance-none pl-4 pr-10">
+                  <option value="">Select a Subject</option>
+                  {% for subject in user.subjects %}
+                  <option value="{{ subject }}">{{ subject }}</option>
+                  {% endfor %}
+                </select>
+                <span class="material-symbols-outlined absolute right-4 top-4 text-outline pointer-events-none">expand_more</span>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-outline">CHOOSE TOPIC</label>
+              <div class="relative">
+                <select id="topicSelect" disabled class="w-full h-14 bg-surface-container-low border-none rounded-xl text-on-surface font-semibold focus:ring-2 focus:ring-primary/20 appearance-none pl-4 pr-10 disabled:opacity-50">
+                  <option value="">Select a topic</option>
+                </select>
+                <span class="material-symbols-outlined absolute right-4 top-4 text-outline pointer-events-none">expand_more</span>
+              </div>
+            </div>
+          </div>
+          <button id="startBtn" onclick="handleStartSession()" class="w-full h-14 bg-gradient-to-r from-[#3713EC] to-[#6B21A8] text-white font-bold rounded-xl shadow-xl shadow-primary/20 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-3 group">
+            <span id="startBtnText">Start Reading</span>
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" id="startBtnIcon">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Ask AI + Upload Row -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div onclick="openAIChat()" class="bg-[#3713EC] rounded-xl p-8 text-white relative overflow-hidden group cursor-pointer shadow-lg hover:shadow-primary/40 hover:-translate-y-1 transition-all">
+          <div class="relative z-10">
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+            </div>
+            <h4 class="text-2xl font-bold mb-2">Ask AI Anything</h4>
+            <p class="text-primary-fixed opacity-80 text-sm leading-relaxed">Stuck on a problem? Get instant explanations from EduSpark AI.</p>
+            <div class="mt-8 flex items-center gap-2 font-bold text-sm">
+              <span>Launch Chat</span>
+              <span class="material-symbols-outlined">arrow_outward</span>
+            </div>
+          </div>
+          <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
+        </div>
+
+        <div class="bg-surface-container-lowest rounded-xl p-8 group cursor-pointer border border-outline-variant/10 hover:border-primary/30 hover:-translate-y-1 transition-all shadow-sm" onclick="document.getElementById('assignmentFileInput').click()">
+          <div class="w-12 h-12 bg-surface-container-low rounded-xl flex items-center justify-center mb-6 group-hover:bg-primary/5 transition-colors">
+            <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">cloud_upload</span>
+          </div>
+          <h4 class="text-2xl font-bold text-on-surface mb-2">Upload Assignment</h4>
+          <p class="text-outline text-sm leading-relaxed">Submit your homework or scanned papers for grading and feedback.</p>
+          <div class="mt-8 flex items-center gap-2 font-bold text-sm text-primary">
+            <span>Browse Files +</span>
+            <span class="material-symbols-outlined">add</span>
+          </div>
+          <input type="file" id="assignmentFileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png" onchange="openUploadModal(this)"/>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column -->
+    <div class="col-span-12 lg:col-span-4 space-y-8">
+
+      <!-- Profile Card -->
+      <div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+        <div class="flex flex-col items-center text-center">
+          <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-secondary p-1 mb-4 shadow-xl shadow-primary/10">
+            <div class="w-full h-full rounded-full bg-white flex items-center justify-center">
+              <span class="text-3xl font-black text-primary" id="profileInitials">??</span>
+            </div>
+          </div>
+          <h4 class="text-xl font-extrabold text-on-surface">{{ user.name }}</h4>
+          <div class="mt-2 px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">{{ user.level }}</div>
+          <div class="w-full mt-8 space-y-4">
+            <div class="flex justify-between text-xs font-bold text-outline">
+              <span>WEEKLY PROGRESS</span>
+              <span class="text-primary" id="progressPct">0%</span>
+            </div>
+            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-700" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="flex gap-2 justify-center pt-4">
+              <div class="px-4 py-2 bg-surface-container-low rounded-lg text-center">
+                <p class="text-lg font-extrabold text-on-surface leading-tight" id="profileSubjectCount">0</p>
+                <p class="text-[9px] font-bold text-outline uppercase">Subjects</p>
+              </div>
+              <div class="px-4 py-2 bg-surface-container-low rounded-lg text-center">
+                <p class="text-lg font-extrabold text-on-surface leading-tight" id="profileSessionCount">0</p>
+                <p class="text-[9px] font-bold text-outline uppercase">Sessions</p>
+              </div>
+            </div>
+            <p class="italic text-outline text-sm mt-6 border-t border-outline-variant/20 pt-6">"Education is the most powerful weapon which you can use to change the world."</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasks Widget -->
+      <div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
+        <div class="p-6 border-b border-outline-variant/10 flex justify-between items-center">
+          <h4 class="font-bold text-on-surface flex items-center gap-2">
+            Recent Tasks
+            <span id="taskBadge" class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-full">0 REMAINING</span>
+          </h4>
+          <button onclick="showAddTaskInput()" class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+            <span class="material-symbols-outlined text-sm">add</span>
+          </button>
+        </div>
+
+        <!-- Add task input (hidden by default) -->
+        <div id="addTaskRow" class="hidden p-4 border-b border-outline-variant/10 flex gap-2">
+          <input id="newTaskInput" type="text" placeholder="Task name..." class="flex-1 text-sm border border-outline-variant/30 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface-container-low"/>
+          <button onclick="addTask()" class="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors">Add</button>
+        </div>
+
+        <div id="tasksList" class="divide-y divide-outline-variant/10 max-h-72 overflow-y-auto">
+          <!-- Tasks rendered by JS -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Continue Studying -->
+  <section class="mb-10">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-xl font-bold text-on-surface">Continue Studying</h3>
+      <span class="text-xs text-outline font-medium" id="sessionCountLabel"></span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="sessionsGrid">
+      <!-- Populated by JS -->
+      <div class="col-span-3 text-center py-10">
+        <div class="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-on-surface text-inverse-on-surface text-sm font-semibold rounded-full shadow-xl opacity-0 transition-all duration-300 z-[200] pointer-events-none">
+  Message here
+</div>
+
+<!-- AI Chat Modal -->
+<div id="tutorModal" class="fixed inset-0 z-[100] bg-on-background/40 backdrop-blur-sm hidden items-center justify-center p-4 md:p-6">
+  <div class="bg-surface-container-lowest w-full max-w-4xl h-[90vh] max-h-[820px] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <!-- Modal Header -->
+    <div class="p-6 bg-primary text-white flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+          <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+        </div>
+        <div>
+          <h3 class="font-bold">EduSpark AI Tutor</h3>
+          <p class="text-[10px] text-primary-fixed opacity-70">Topic: <span id="modalTopic">—</span></p>
+        </div>
+      </div>
+      <button onclick="closeTutorModal()" class="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+      <!-- Messages appended here -->
+    </div>
+
+    <!-- Input -->
+    <div class="p-4 md:p-6 border-t border-outline-variant/10 shrink-0">
+      <div class="relative flex items-center bg-surface-container-low rounded-2xl p-2 px-4">
+        <input id="chatInput" type="text" placeholder="Ask anything about your subjects..."
+          class="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3"
+          onkeydown="if(event.key==='Enter') sendMessage();"/>
+        <button onclick="sendMessage()" class="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
+          <span class="material-symbols-outlined">send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Assignment Modal -->
+<div id="uploadModal" class="fixed inset-0 z-[100] bg-on-background/40 backdrop-blur-sm hidden items-center justify-center p-4 md:p-6">
+  <div class="bg-surface-container-lowest w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col p-8 md:p-10">
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <h3 class="text-2xl font-bold text-on-surface">Upload Assignment</h3>
+        <p class="text-sm text-outline">Submit your homework for AI review or teacher grading.</p>
+      </div>
+      <button onclick="closeUploadModal()" class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="border-2 border-dashed border-outline-variant rounded-3xl p-10 flex flex-col items-center justify-center text-center group hover:border-primary hover:bg-primary/5 transition-all cursor-pointer"
+         onclick="document.getElementById('modalFileInput').click()">
+      <div class="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+        <span class="material-symbols-outlined text-4xl text-outline group-hover:text-primary">upload_file</span>
+      </div>
+      <h4 class="text-xl font-bold text-on-surface mb-2">Drag files or select homework pages</h4>
+      <p class="text-sm text-outline max-w-xs">Supported formats: PDF, JPG, PNG. Max file size: 10MB.</p>
+      <input type="file" id="modalFileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png"/>
+      <div class="mt-8 flex gap-4">
+        <button class="px-8 py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20">Browse Files</button>
+      </div>
+    </div>
+
+    <div id="uploadFileInfo" class="hidden mt-8">
+      <div class="bg-surface-container-low p-4 rounded-2xl flex items-center gap-4">
+        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+          <span class="material-symbols-outlined text-primary">description</span>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-bold text-on-surface" id="uploadFileName">—</p>
+          <p class="text-[10px] text-outline" id="uploadFileSize">—</p>
+        </div>
+        <button onclick="clearUploadFile()" class="text-error font-bold text-xs">Remove</button>
+      </div>
+      <button onclick="submitAssignment()" class="w-full mt-6 py-4 bg-primary text-white font-extrabold rounded-2xl shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all">
+        Submit Assignment
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── User Data from Flask ────────────────────────────────────────────────────
+const USER_NAME    = "{{ user.name }}";
+const USER_LEVEL   = "{{ user.level }}";
+const USER_SUBJECTS = {{ user.subjects | tojson }};
+
+// ─── Subject → Topic map ─────────────────────────────────────────────────────
+const subjectTopics = {
+  "Mathematics": [
+    "Whole Numbers and Number Systems",
+    "Fractions and Decimals",
+    "Ratio, Proportion and Percentages",
+    "Factors, Multiples, LCM, HCF",
+    "Algebraic Expressions and Equations",
+    "Simple and Simultaneous Equations",
+    "Indices and Logarithms",
+    "Sets and Venn Diagrams",
+    "Statistics and Data Representation",
+    "Probability",
+    "Geometry (Lines, Angles, Triangles, Quadrilaterals, Circles)",
+    "Mensuration (Perimeter, Area, Volume, Surface Area)",
+    "Trigonometry",
+    "Graphs and Functions",
+    "Quadratic Equations",
+    "Variation (Direct, Inverse)",
+    "Sequences and Series",
+    "Coordinate Geometry",
+    "Introduction to Calculus (Limits, Differentiation, Integration)",
+    "Matrices and Determinants",
+    "Vectors",
+    "Complex Numbers",
+    "Further Probability and Statistics"
+  ],
+
+  "English Language": [
+    "Parts of Speech",
+    "Sentence Structure and Types",
+    "Tenses and Concord",
+    "Comprehension Skills",
+    "Summary Writing",
+    "Essay Writing (Narrative, Descriptive, Argumentative, Expository)",
+    "Letter Writing (Formal, Informal)",
+    "Vocabulary Development",
+    "Figures of Speech (Simile, Metaphor, Personification)",
+    "Direct and Indirect Speech",
+    "Active and Passive Voice",
+    "Oral English (Phonetics, Stress, Intonation, Reading Aloud)",
+    "Listening and Speaking Skills",
+    "Report Writing",
+    "Story Writing and Composition",
+    "Grammar Exercises and Editing",
+    "Punctuation Rules",
+    "Idioms and Proverbs",
+    "Spelling and Dictation",
+    "Literary Appreciation (Poetry, Prose, Drama)"
+  ],
+
+  "Yoruba Language": [
+    "Ede Yoruba (Alphabet, Sounds, Phonetics)",
+    "Isedale Oro (Word Formation, Root Words)",
+    "Gbolohun (Sentence Construction, Simple & Complex)",
+    "Aroko Kikowe (Essay Writing, Paragraphs)",
+    "Aroko Alaye ati Aroko Alariyanjiyan (Expository & Narrative Essays)",
+    "Itan ati Asa Yoruba (Culture, History, Traditions)",
+    "Litireso Yoruba (Poetry, Prose, Drama)",
+    "Grammar Rules (Tones, Pronouns, Verbs, Adjectives)",
+    "Vocabulary Building",
+    "Idioms, Proverbs, and Sayings",
+    "Reading Comprehension in Yoruba",
+    "Oral Yoruba (Speech, Recitation, Oral Literature)",
+    "Translation (English ↔ Yoruba)",
+    "Composition Writing",
+    "Letter Writing",
+    "Summary and Paraphrasing",
+    "Storytelling Skills",
+    "Dialogue Construction",
+    "Listening and Speaking Practice"
+  ],
+
+  "Physics": [
+    "Motion",
+    "Force and Pressure",
+    "Work, Energy, Power",
+    "Simple Machines",
+    "Heat and Temperature",
+    "Waves (Sound and Light)",
+    "Electricity and Magnetism",
+    "Circuits and Current",
+    "Energy Transfer and Conservation",
+    "Optics (Reflection, Refraction, Lenses)",
+    "Heat Transfer Methods",
+    "Sound Waves and Properties",
+    "Thermodynamics Basics",
+    "Electronics Fundamentals",
+    "Atomic Physics and Radioactivity",
+    "Fluid Mechanics",
+    "Oscillations and Vibrations",
+    "Electromagnetic Induction",
+    "Gravitation",
+    "Modern Physics Concepts"
+  ],
+
+  "Chemistry": [
+    "Matter and Its Properties",
+    "Elements, Compounds, and Mixtures",
+    "Atomic Structure",
+    "Periodic Table",
+    "Chemical Bonding",
+    "Acids, Bases, and Salts",
+    "Organic Chemistry Basics",
+    "Hydrocarbons",
+    "Water and Solutions",
+    "Oxidation and Reduction",
+    "Chemical Reactions and Equations",
+    "Stoichiometry",
+    "Electrochemistry",
+    "Gases and Gas Laws",
+    "Thermochemistry",
+    "Chemical Kinetics",
+    "Environmental Chemistry",
+    "Analytical Chemistry",
+    "Laboratory Techniques"
+  ],
+
+  "Biology": [
+    "Cell Structure and Function",
+    "Nutrition in Plants and Animals",
+    "Human Body Systems (Digestive, Circulatory, Respiratory, Excretory)",
+    "Reproduction (Plant and Animal)",
+    "Genetics and Heredity",
+    "Evolution",
+    "Ecology and Environmental Science",
+    "Microorganisms",
+    "Photosynthesis and Respiration",
+    "Plant Biology",
+    "Animal Physiology",
+    "Disease and Immunity",
+    "Human Health and Hygiene",
+    "Population and Conservation",
+    "Classification of Living Organisms",
+    "Adaptation and Survival",
+    "Biotechnology Basics",
+    "Practical Biology Skills"
+  ],
+
+  "Further Mathematics": [
+    "Complex Numbers",
+    "Matrices",
+    "Vectors",
+    "Differential Equations",
+    "Advanced Probability",
+    "Statistics",
+    "Quadratic and Cubic Functions",
+    "Logarithms and Exponentials",
+    "Trigonometry Identities",
+    "Linear Algebra",
+    "Sequence and Series",
+    "Coordinate Geometry",
+    "Advanced Calculus Concepts"
+  ],
+
+  "Geography": [
+    "Map Reading and Interpretation",
+    "Latitude, Longitude, Time Zones",
+    "Climate and Weather",
+    "Rocks and Minerals",
+    "Soil Types and Formation",
+    "Vegetation and Ecosystems",
+    "Population and Demography",
+    "Economic Geography",
+    "Urbanization and Settlement",
+    "Natural Disasters",
+    "Hydrology and Rivers",
+    "Transport and Communication",
+    "Environmental Issues",
+    "Cartography Basics"
+  ],
+
+  "Economics": [
+    "Supply and Demand",
+    "Market Structures",
+    "National Income",
+    "Fiscal and Monetary Policy",
+    "Trade and Commerce",
+    "Inflation and Unemployment",
+    "Production and Cost",
+    "Business Cycles",
+    "Money and Banking",
+    "International Trade",
+    "Entrepreneurship",
+    "Economic Development",
+    "Pricing and Revenue"
+  ],
+
+  "Government": [
+    "Arms of Government",
+    "Constitution",
+    "Political Parties",
+    "Electoral Systems",
+    "Federalism",
+    "Legislature Functions",
+    "Executive Functions",
+    "Judiciary Functions",
+    "Human Rights and Responsibilities",
+    "Public Administration",
+    "International Relations",
+    "Democracy and Governance"
+  ],
+
+  "Agricultural Science": [
+    "Soil Science",
+    "Crop Production",
+    "Animal Husbandry",
+    "Farm Management",
+    "Pest and Disease Control",
+    "Planting Techniques",
+    "Irrigation and Drainage",
+    "Post-Harvest Handling",
+    "Agricultural Economics",
+    "Livestock Nutrition",
+    "Husbandry Practices",
+    "Farm Mechanization"
+  ],
+
+  "Civic Education": [
+    "Human Rights",
+    "Democracy",
+    "Rule of Law",
+    "Citizenship",
+    "National Values",
+    "Patriotism and Unity",
+    "Social Responsibilities",
+    "Leadership and Integrity",
+    "Conflict Resolution",
+    "Community Development"
+  ],
+
+  "Literature in English": [
+    "Poetry",
+    "Drama",
+    "Prose",
+    "Literary Devices",
+    "Comprehension",
+    "Character Analysis",
+    "Plot Structure",
+    "Themes and Motifs",
+    "Historical Context",
+    "Literary Criticism"
+  ],
+
+  "Animal Husbandry": [
+    "Livestock Management",
+    "Animal Nutrition",
+    "Veterinary Science",
+    "Breeding and Reproduction",
+    "Disease Prevention",
+    "Housing and Shelter",
+    "Record Keeping",
+    "Marketing of Animal Products"
+  ]
+};
+
+// Subject colour map
+const subjectColors = {
+  "Mathematics": "blue", "Physics": "orange", "Biology": "green",
+  "Chemistry": "purple", "English Language": "pink", "Further Mathematics": "indigo",
+  "Geography": "teal", "Economics": "amber", "Government": "cyan",
+  "default": "indigo"
+};
+
+// ─── On Load ─────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setGreeting();
+  setInitials();
+  setStats();
+  populateSubjectDropdown();
+  loadActiveSessions();
+  loadTasks();
+});
+
+// ─── Greeting ────────────────────────────────────────────────────────────────
+function setGreeting() {
+  const hour = new Date().getHours();
+  const time = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+  document.getElementById('welcomeMsg').textContent = `Good ${time}, ${USER_NAME} 👋`;
+}
+
+// ─── Initials ────────────────────────────────────────────────────────────────
+function setInitials() {
+  const initials = USER_NAME.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+  document.getElementById('profileInitials').textContent = initials;
+  document.getElementById('headerInitials').textContent  = initials;
+}
+
+// ─── Stats ───────────────────────────────────────────────────────────────────
+function setStats() {
+  document.getElementById('statSubjects').textContent = USER_SUBJECTS.length;
+  document.getElementById('statLevel').textContent    = USER_LEVEL;
+  document.getElementById('profileSubjectCount').textContent = USER_SUBJECTS.length;
+}
+
+// ─── Subject Dropdown ────────────────────────────────────────────────────────
+function populateSubjectDropdown() {
+  const select = document.getElementById('subjectSelect');
+  // Clear existing options (keep first placeholder)
+  while (select.options.length > 1) select.remove(1);
+
+  USER_SUBJECTS.forEach(subject => {
+    const opt = document.createElement('option');
+    opt.value = subject;
+    opt.textContent = subject;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener('change', () => {
+    const topicSelect = document.getElementById('topicSelect');
+    const topics = subjectTopics[select.value] || [];
+    topicSelect.innerHTML = '<option value="">Select a topic</option>';
+    topicSelect.disabled = topics.length === 0;
+    topics.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      topicSelect.appendChild(opt);
+    });
+  });
+}
+
+// ─── Sessions ────────────────────────────────────────────────────────────────
+async function loadActiveSessions() {
+  try {
+    const res = await fetch('/api/tutor/sessions');
+    const sessions = await res.json();
+    const grid = document.getElementById('sessionsGrid');
+
+    // Update stats
+    document.getElementById('statTopics').textContent = sessions.length;
+    document.getElementById('profileSessionCount').textContent = sessions.length;
+
+    // Progress bar (capped at 100%, 5 sessions = 100%)
+    const pct = Math.min(Math.round((sessions.length / 5) * 100), 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+
+    // Session count label
+    document.getElementById('sessionCountLabel').textContent =
+      sessions.length > 0 ? `${sessions.length} active session${sessions.length > 1 ? 's' : ''}` : '';
+
+    // Resume button
+    if (sessions.length > 0) {
+      const latest = sessions[0];
+      const topicShort = latest.topic.includes(':') ? latest.topic.split(': ')[1] : latest.topic;
+      const resumeBtn = document.getElementById('resumeBtn');
+      resumeBtn.textContent = `Resume ${topicShort}`;
+      resumeBtn.classList.remove('hidden');
+      resumeBtn.onclick = () => openTutorModal(latest.topic);
+      document.getElementById('bannerSubtitle').textContent =
+        `You have ${sessions.length} active study session${sessions.length > 1 ? 's' : ''}. Keep going.`;
+    } else {
+      document.getElementById('bannerSubtitle').textContent = "Ready to start learning? Pick a subject below.";
     }
-    
-    return jsonify({"success": True, "message": "File uploaded successfully"})
 
-
-@app.route('/api/assignment/chat' methods=['POST'])
-def assignment_chat():
-    if 'user'not in session:
-        return jsonify({"success":False,"message":"Not logged in"}), 401
-    if 'assignment' not in session:
-        return jsonify({"success": False, "message": "No assignment uploaded"}), 400
-    
-    data= request.get_json()
-    user_message= data.get('message', '').strip()
-    history= data.get('history', [])
-    if not user_message:
-        return jsonify({"success": False, "message": "Message is required"}), 400
-    
-    file_path= session['assignment']['path']
-    filename=session['assignment']['filename']
-    extension= filename.rsplit('.', 1)[1].lower()
-    
-    
-    with open(file_path, 'rb') as f:
-        file_bytes= f.read()
-    
-    file_base64= base64.b64encode(file_bytes).decode('utf-8')
-    
-    mime_types= {
-        'pdf': 'application.pdf',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png'
+    // Sessions grid
+    if (sessions.length === 0) {
+      grid.innerHTML = `
+        <div class="col-span-3 text-center py-16 text-outline">
+          <span class="material-symbols-outlined text-5xl mb-4 block opacity-30">menu_book</span>
+          <p class="font-bold text-lg">No sessions yet</p>
+          <p class="text-sm mt-1 opacity-70">Pick a subject above to start your first lesson!</p>
+        </div>`;
+      return;
     }
-    mime_type= mime_types.get(extension, 'application/octet-stream')
-    
-    try:
-        contents = [
-            {
-                "role":"user",
-                "parts":[
-                    {
-                        "inline_data":{
-                            "mime_type": mime_type,
-                            "data" : file_base64
-                        }
-                    },
-                    {
-                        "text": "This is the student's uploaded assignment or document. Use it to answer their question"
-                    }
-                ]
-            },
-            {
-                "role":"model"'
-                "parts":[{"text": "Understood. I will use the content of the uploaded file to assist with the student's question."}]
-            },
-            *history,
-            {
-                "role":"user",
-                "parts":[{"text": user_message}]
-            }
-        ]
-        
-        answer= generate_with_fallback(contents)
-        return jsonify({"success": True, "answer": answer})
-    except Exception as e:
-        print(f"Assignment chat error: {e}")
-        return jsonify({"success": False, "message": "Service is currently unavailable. Please try again later."}), 500
-if __name__ == '__main__':
-    app.run(debug=True)
+
+    grid.innerHTML = sessions.map(s => {
+      const parts = s.topic.includes(': ') ? s.topic.split(': ') : [s.topic, s.topic];
+      const subject = parts[0], topic = parts[1];
+      const color   = subjectColors[subject] || subjectColors["default"];
+      const date    = new Date(s.last_updated);
+      const now     = new Date();
+      const diffH   = Math.round((now - date) / 36e5);
+      const timeAgo = diffH < 1 ? 'Just now' : diffH < 24 ? `${diffH}h ago`
+                    : diffH < 48 ? 'Yesterday' : date.toLocaleDateString('en-NG', { day:'numeric', month:'short' });
+      return `
+        <div class="bg-surface-container-lowest p-6 rounded-xl border-l-4 border-${color}-500 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <p class="text-[10px] font-extrabold text-outline uppercase mb-1">${subject}</p>
+          <h4 class="text-lg font-bold text-on-surface mb-4">${topic}</h4>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] text-outline font-medium">Last studied: ${timeAgo}</span>
+            <div class="flex items-center gap-2">
+              <button onclick="deleteSession('${s.topic}')"
+                class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-50 text-outline hover:text-error transition-colors"
+                title="Delete session">
+                <span class="material-symbols-outlined text-base">delete</span>
+              </button>
+              <button onclick="openTutorModal('${s.topic}')"
+                class="px-4 py-1.5 border border-primary text-primary text-[10px] font-bold rounded-full hover:bg-primary hover:text-white transition-all">
+                Continue →
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    console.error("Failed to load sessions:", err);
+    document.getElementById('sessionsGrid').innerHTML = `
+      <div class="col-span-3 text-center py-10 text-outline">
+        <p class="text-sm">Failed to load sessions. Please refresh.</p>
+      </div>`;
+  }
+}
+
+// ─── Delete Session ───────────────────────────────────────────────────────────
+async function deleteSession(topic) {
+  if (!confirm(`Delete session "${topic}"?`)) return;
+  try {
+    const res = await fetch(`/api/tutor/sessions/${encodeURIComponent(topic)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Session deleted');
+      loadActiveSessions();
+    } else {
+      showToast('Could not delete session');
+    }
+  } catch (e) {
+    showToast('Error deleting session');
+  }
+}
+
+// ─── Start Session ────────────────────────────────────────────────────────────
+function handleStartSession() {
+  const subject = document.getElementById('subjectSelect').value;
+  const topic   = document.getElementById('topicSelect').value;
+  if (!subject) { showToast('Please select a subject'); return; }
+  if (!topic)   { showToast('Please select a topic');   return; }
+  openTutorModal(`${subject}: ${topic}`);
+}
+
+// ─── Open AI Chat (no topic — general) ───────────────────────────────────────
+function openAIChat() {
+  const subject = document.getElementById('subjectSelect').value;
+  const topic   = document.getElementById('topicSelect').value;
+  const fullTopic = subject && topic ? `${subject}: ${topic}` : (subject ? `${subject}: General` : 'General: Ask me anything');
+  openTutorModal(fullTopic);
+}
+
+// ─── Tutor Modal ──────────────────────────────────────────────────────────────
+let currentTopic = null;
+
+async function openTutorModal(topic) {
+  currentTopic = topic;
+  document.getElementById('modalTopic').textContent = topic;
+  const modal = document.getElementById('tutorModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  document.getElementById('chatMessages').innerHTML = '';
+  showTypingIndicator();
+
+  // Disable start button while loading
+  setStartBtn(true);
+
+  try {
+    const res = await fetch('/api/tutor/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic })
+    });
+    const data = await res.json();
+    removeTypingIndicator();
+
+    if (data.success) {
+      const messages = Array.isArray(data.messages) ? data.messages : [data.messages];
+      messages.forEach((msg, i) => setTimeout(() => appendMessage('ai', msg), i * 800));
+      loadActiveSessions(); // refresh stats + grid
+    } else {
+      appendMessage('error', data.message || 'Failed to start session');
+    }
+  } catch (err) {
+    removeTypingIndicator();
+    appendMessage('error', 'Connection error. Please try again.');
+  } finally {
+    setStartBtn(false);
+  }
+}
+
+function closeTutorModal() {
+  const modal = document.getElementById('tutorModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  currentTopic = null;
+}
+
+async function sendMessage() {
+  const input   = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message || !currentTopic) return;
+
+  appendMessage('user', message);
+  input.value = '';
+  showTypingIndicator();
+
+  try {
+    const res = await fetch('/api/tutor/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: currentTopic, message })
+    });
+    const data = await res.json();
+    removeTypingIndicator();
+
+    if (data.success) {
+      const messages = Array.isArray(data.messages) ? data.messages : [data.messages];
+      messages.forEach((msg, i) => setTimeout(() => appendMessage('ai', msg), i * 800));
+    } else {
+      appendMessage('error', data.message || 'Something went wrong');
+    }
+  } catch (err) {
+    removeTypingIndicator();
+    appendMessage('error', 'Connection error. Please try again.');
+  }
+}
+
+function appendMessage(sender, text) {
+  const chat = document.getElementById('chatMessages');
+
+  if (sender === 'user') {
+    const div = document.createElement('div');
+    div.className = 'flex justify-end';
+    div.innerHTML = `
+      <div class="max-w-[75%] bg-primary text-white p-4 rounded-2xl rounded-tr-none shadow-lg text-sm">
+        ${escapeHtml(text)}
+      </div>`;
+    chat.appendChild(div);
+
+  } else if (sender === 'ai') {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex justify-start items-start gap-3';
+    const bubble = document.createElement('div');
+    bubble.className = 'max-w-[75%] bg-surface-container-low text-on-surface p-4 rounded-2xl rounded-tl-none border border-outline-variant/10 text-sm ai-message';
+    bubble.innerHTML = marked.parse(text);
+    wrap.innerHTML = `
+      <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-1">
+        <span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+      </div>`;
+    wrap.appendChild(bubble);
+    chat.appendChild(wrap);
+
+  } else {
+    const div = document.createElement('div');
+    div.className = 'text-center text-error text-sm font-medium py-2';
+    div.textContent = text;
+    chat.appendChild(div);
+  }
+
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function showTypingIndicator() {
+  removeTypingIndicator();
+  const chat = document.getElementById('chatMessages');
+  const wrap = document.createElement('div');
+  wrap.id = 'typingIndicator';
+  wrap.className = 'flex justify-start items-start gap-3';
+  wrap.innerHTML = `
+    <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+      <span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+    </div>
+    <div class="bg-surface-container-low p-4 rounded-2xl rounded-tl-none border border-outline-variant/10 flex gap-1.5 items-center">
+      <span class="w-2 h-2 bg-primary rounded-full typing-dot"></span>
+      <span class="w-2 h-2 bg-primary rounded-full typing-dot"></span>
+      <span class="w-2 h-2 bg-primary rounded-full typing-dot"></span>
+    </div>`;
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function setStartBtn(loading) {
+  const btn  = document.getElementById('startBtn');
+  const text = document.getElementById('startBtnText');
+  const icon = document.getElementById('startBtnIcon');
+  btn.disabled  = loading;
+  text.textContent = loading ? 'Loading...' : 'Start Reading';
+  icon.textContent = loading ? 'hourglass_empty' : 'arrow_forward';
+  btn.classList.toggle('opacity-70', loading);
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+let tasks = [];
+
+function loadTasks() {
+  const stored = localStorage.getItem('eduspark_tasks');
+  tasks = stored ? JSON.parse(stored) : [
+    { id: 1, text: 'Physics Lab Report',   due: 'Tomorrow, 2:00 PM',  priority: 'high',   done: false },
+    { id: 2, text: 'Calculus Assignment 4', due: 'Wed, 10:00 AM',     priority: 'medium', done: false },
+    { id: 3, text: 'Biology Diagram',       due: 'Completed',         priority: 'low',    done: true  },
+  ];
+  renderTasks();
+}
+
+function saveTasks() {
+  localStorage.setItem('eduspark_tasks', JSON.stringify(tasks));
+}
+
+function renderTasks() {
+  const list      = document.getElementById('tasksList');
+  const remaining = tasks.filter(t => !t.done).length;
+  document.getElementById('taskBadge').textContent = `${remaining} REMAINING`;
+
+  if (tasks.length === 0) {
+    list.innerHTML = `<div class="p-6 text-center text-outline text-sm">No tasks yet. Add one above!</div>`;
+    return;
+  }
+
+  const priorityColor = { high: 'bg-error', medium: 'bg-orange-400', low: 'bg-green-400' };
+
+  list.innerHTML = tasks.map(task => `
+    <div class="p-4 flex items-center gap-4 hover:bg-surface-container-low transition-colors group ${task.done ? 'opacity-60' : ''}">
+      <div onclick="toggleTask(${task.id})"
+        class="w-5 h-5 rounded border-2 ${task.done ? 'border-primary bg-primary/10' : 'border-outline-variant group-hover:border-primary'} flex items-center justify-center cursor-pointer transition-colors shrink-0">
+        <span class="material-symbols-outlined text-[12px] ${task.done ? 'text-primary' : 'opacity-0 group-hover:opacity-100 text-primary'}">check</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-on-surface ${task.done ? 'line-through' : ''} truncate">${escapeHtml(task.text)}</p>
+        <p class="text-[10px] text-outline font-medium">${task.due}</p>
+      </div>
+      <div class="w-2 h-2 rounded-full shrink-0 ${priorityColor[task.priority] || 'bg-outline'}"></div>
+      <button onclick="deleteTask(${task.id})" class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center transition-all">
+        <span class="material-symbols-outlined text-[14px] text-error">close</span>
+      </button>
+    </div>`).join('');
+}
+
+function toggleTask(id) {
+  const t = tasks.find(t => t.id === id);
+  if (t) { t.done = !t.done; saveTasks(); renderTasks(); }
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  saveTasks();
+  renderTasks();
+}
+
+function showAddTaskInput() {
+  const row = document.getElementById('addTaskRow');
+  row.classList.toggle('hidden');
+  if (!row.classList.contains('hidden')) document.getElementById('newTaskInput').focus();
+}
+
+function addTask() {
+  const input = document.getElementById('newTaskInput');
+  const text  = input.value.trim();
+  if (!text) return;
+  tasks.unshift({ id: Date.now(), text, due: 'No due date', priority: 'medium', done: false });
+  saveTasks();
+  renderTasks();
+  input.value = '';
+  document.getElementById('addTaskRow').classList.add('hidden');
+  showToast('Task added!');
+}
+
+// ─── Upload Modal ─────────────────────────────────────────────────────────────
+function openUploadModal(input) {
+  if (input && input.files[0]) showFileInModal(input.files[0]);
+  const modal = document.getElementById('uploadModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function closeUploadModal() {
+  const modal = document.getElementById('uploadModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+function showFileInModal(file) {
+  document.getElementById('uploadFileName').textContent = file.name;
+  document.getElementById('uploadFileSize').textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB • Ready to upload`;
+  document.getElementById('uploadFileInfo').classList.remove('hidden');
+}
+
+function clearUploadFile() {
+  document.getElementById('uploadFileInfo').classList.add('hidden');
+  document.getElementById('assignmentFileInput').value = '';
+  document.getElementById('modalFileInput').value = '';
+}
+
+document.getElementById('modalFileInput').addEventListener('change', function() {
+  if (this.files[0]) showFileInModal(this.files[0]);
+});
+
+
+//_____________submit assignment______________________
+let assignmentChatHistory= []
+async function submitAssignment() {
+  const modalInput = document.getElementById('modalFileInput');
+const mainInput = document.getElementById('assignmentFileInput');
+
+const fileInput = modalInput?.files?.[0] || mainInput?.files?.[0] || null;
+   if (!fileInput) {
+    showToast('Please select a file to upload');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput);
+  try{
+    const res = await fetch('/api/upload',{method: 'POST',body:formData});
+    const data= await res.json();
+
+    if (data.success){
+      assignmentChatHistory=[];
+      closeUploadModal();
+      clearUploadFile();
+      openAssignmentChat(data.filename);
+    }
+    else{
+      showToast(data.message || 'Failed to upload assignment');
+    }
+  } catch(err){
+    console.error(err);
+    showToast('Network error. Please try again.');
+  }
+}
+
+function openAssignmentChat(filename){
+  document.getElementById('modalTopic').textContent = `Assignment: ${filename}`;
+  document.getElementById('chatMessages').innerHTML = '';
+  const modal = document.getElementById('tutorModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  document.getElementById('chatInput').onkeydown= (e) => {
+    if (e.key==='Enter') sendAssignmentMessage();
+  };
+  document.querySelector('#tutorModal button[onclick="sendMessage()"]')
+  ?.setAttribute('onclick', 'sendAssignmentMessage()');
+
+   appendMessage('ai', `I've read your file **${filename}**. Ask me anything about it — I can explain concepts, summarise sections, or answer specific questions!`);
+
+}
+
+async function sendAssignmentMessage() {
+  const input= document.getElementById('chatInput');
+  const message= input.value.trim();
+  if (!message) return;
+  appendMessage('user', message); 
+  input.value = '';
+  showTypingIndicator();
+
+  try{
+    const res= await fetch('/api/assignment/chat', {method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message, history: assignmentChatHistory})});
+
+    const data = await res.json();
+    removeTypingIndicator();
+
+    if(data.success){
+      appendMessage('ai', data.reply);
+      assignmentChatHistory.push({role:'user', parts: [{text: message}]});
+      assignmentChatHistory.push({role:'ai', parts: [{text: data.reply}]});
+    }
+    else{
+      appendMessage('error', data.message || 'Something went wrong');
+    }
+  }
+  catch (err){
+  removeTypingIndicator();
+  appendMessage('error', 'Network error. Try again')
+  }
+}
+
+
+// ─── User Dropdown ────────────────────────────────────────────────────────────
+function toggleUserDropdown() {
+  document.getElementById('userDropdown').classList.toggle('hidden');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('[onclick="toggleUserDropdown()"]')) {
+    document.getElementById('userDropdown').classList.add('hidden');
+  }
+});
+
+// ─── Sidebar (mobile) ─────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(10px)';
+  }, 2800);
+}
+
+// Fix header width on mobile
+function fixHeaderLayout() {
+  const header = document.getElementById('topHeader');
+  if (window.innerWidth < 1024) {
+    header.style.left = '0';
+    header.style.width = '100%';
+  } else {
+    header.style.left = '16rem';
+    header.style.width = 'calc(100% - 16rem)';
+  }
+}
+window.addEventListener('resize', fixHeaderLayout);
+fixHeaderLayout();
+</script>
+</body>
+</html>
