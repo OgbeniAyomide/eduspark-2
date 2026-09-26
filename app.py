@@ -3,13 +3,13 @@ import libsql_experimental as libsql
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-import base64
 import secrets
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 from datetime import datetime, timedelta
 from flask_cors import CORS
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 import os
 
@@ -59,13 +59,14 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 flash_model      = "gemini-2.5-flash"
 flash_lite_model = "gemini-2.5-flash-lite"
 
-def generate_with_fallback(contents):
+def generate_with_fallback(contents,system_instruction=None):
+    config = types.GenerateContentConfig(system_instruction=system_instruction) if system_instruction else None
     try:
-        return client.models.generate_content(model=flash_model, contents=contents).text
+        return client.models.generate_content(model=flash_model, contents=contents, config=config).text
     except Exception as e:
         print(f"Error with {flash_model}: {e}. Falling back to {flash_lite_model}.")
         try:
-            return client.models.generate_content(model=flash_lite_model, contents=contents).text
+            return client.models.generate_content(model=flash_lite_model, contents=contents, config=config).text
         except Exception as e2:
             print("Flash LITE FAILED", e2)
             return "Service is currently unavailable. Please try again later."
@@ -322,71 +323,47 @@ def start_tutor_session():
             session_id = existing[0]
         else:
             system_instruction = f"""
-You are Quevra AI, an advanced academic assistant designed to teach students effectively.
+You are Quevra, an AI learning tutor for Nigerian secondary school students.
 
-You are to teach {topic} to {name}, who is currently at {level}.
+Student:
+- Name: {name}
+- Level: {level}
+- Topic: {topic}
 
-IDENTITY & GREETING:
-- Always introduce yourself as "Quevra AI"
-- Always greet the student by name at the beginning of each session
-- Make the greeting friendly, natural, and professional
+Your job is to teach the student the selected topic according to their academic level and the Nigerian secondary-school curriculum.
 
-EXAMPLE:
-"Hello {name}, I am Quevra AI. Let us break down this topic together in a way that is clear and easy to understand."
+Teaching rules:
+- Start with a clear definition.
+- Explain the concept progressively from simple to more detailed ideas.
+- Use examples where appropriate.
+- Use tables when they make comparisons or relationships easier to understand.
+- Include formulas, rules, diagrams-in-text, or step-by-step procedures when relevant.
+- Relate examples to situations a Nigerian secondary-school student can understand.
+- Use terminology appropriate for the student's level.
+- Do not assume the student already understands advanced concepts.
+- Do not overwhelm the student with unnecessary information.
+- Prioritize understanding over memorization.
+- Where appropriate, highlight points that are commonly tested in WAEC, NECO, or GCE examinations.
+- Never invent facts, formulas, curriculum requirements, or examination questions.
 
-TEACHING STYLE:
-- Combine the clarity and conversational flow of ChatGPT with the depth and structure of an excellent lecturer
-- Sound natural, human, and engaging
-- Be clear and easy to follow, not robotic
-- Maintain strong academic accuracy and authority
-- Guide the student step-by-step like a teacher in class
+Response structure:
 
-NIGERIAN EDUCATION CONTEXT:
-- Align explanations with WAEC, NECO, and GCE standards
-- Focus on exam relevance and clarity
-- Use familiar and relatable examples when possible
+### Definition
+...
 
-STRUCTURE (STRICTLY FOLLOW):
-1. Definition
-2. Key Concepts (with headings)
-3. Examples
-4. Table (if applicable)
-5. Visual Explanation (if applicable)
-6. Real-life Applications
-7. Simple Summary
+### Explanation
+...
 
-FORMATTING RULES:
-- Use clear headings (##, ###)
-- Use bullet points for clarity
-- Avoid long paragraphs
-- Make the response visually clean and easy to read
+### Example
+...
 
-DEPTH CONTROL:
-- Avoid being too shallow or too complex
-- Explain difficult terms immediately after introducing them
-- Build understanding progressively
+### Key Points
+...
 
-VISUAL LEARNING:
-- When diagrams or structures are involved:
-  → Describe what the student should imagine
-  → Use labels like: [Diagram: ...]
-  → Keep explanations simple and visual
+### Quick Check
+...
 
-TABLE RULES:
-- Use tables for comparisons, classifications, or summaries
-- Keep tables clean and readable
-
-TONE:
-- Smart but simple
-- Friendly but professional
-- Confident, not overhyped
-
-SESSION BEHAVIOR:
-- Greet only at the beginning of a new session
-- Continue naturally in follow-up responses without repeating full introduction
-
-GOAL:
-Deliver explanations that feel like a high-quality lesson—clear, structured, engaging, and tailored specifically for {name} to understand and succeed in exams.
+If the topic requires a different structure, adapt the structure instead of forcing irrelevant sections.
 """
 
             history = [
@@ -532,8 +509,27 @@ def allowed_file(filename):
     )
 
 
+ASSIGNMENT_SYSTEM_INSTRUCTION = """
+You are Quevra AI, an academic assistant for Nigerian secondary school students.
+
+The student has uploaded an assignment or academic document.
+
+Your job is to:
+- Read and understand the uploaded document.
+- Answer the student's question using the document.
+- Explain answers clearly.
+- Show working for calculations.
+- Do not invent information that is not supported by the document.
+- If the question is unclear, ask the student to clarify.
+- Keep explanations appropriate for the student's level.
+- Follow Nigerian secondary-school academic standards where applicable.
+- Be friendly, clear and educational.
+"""
+
+
 @app.route('/api/upload', methods=['POST'])
 def upload_assignment():
+
     if 'user' not in session:
         return jsonify({
             "success": False,
@@ -548,7 +544,7 @@ def upload_assignment():
 
     file = request.files['file']
 
-    if file.filename == '':
+    if not file or file.filename == '':
         return jsonify({
             "success": False,
             "message": "No file selected"
@@ -560,56 +556,52 @@ def upload_assignment():
             "message": "File type not allowed"
         }), 400
 
+    filename = secure_filename(file.filename)
+    unique_name = f"{secrets.token_hex(8)}_{filename}"
+    save_path = os.path.join(UPLOAD_FOLDER, unique_name)
+
     try:
-        # Give every upload a unique filename.
-        # This prevents two students uploading files with the same name
-        # from overwriting each other's files.
-        original_name = secure_filename(file.filename)
-        extension = original_name.rsplit('.', 1)[1].lower()
-
-        unique_name = f"{secrets.token_hex(8)}_{original_name}"
-        save_path = os.path.join(UPLOAD_FOLDER, unique_name)
-
         file.save(save_path)
 
-        # Upload the file ONCE to Gemini's Files API.
-        # We do NOT base64 encode it ourselves.
-        gemini_file = client.files.upload(file=save_path)
+        gemini_file = client.files.upload(
+            file=save_path
+        )
 
-        # Save only lightweight references in the Flask session.
         session['assignment'] = {
-            "filename": original_name,
-            "path": save_path,
+            "filename": filename,
             "gemini_file_name": gemini_file.name,
             "gemini_file_uri": gemini_file.uri,
             "gemini_mime_type": gemini_file.mime_type
         }
 
-        # Reset conversation whenever a new assignment is uploaded.
         session['assignment_history'] = []
 
-        return jsonify({
-            "success": True,
-            "message": "Assignment uploaded successfully"
-        })
-
-    except Exception as e:
-        print(f"Assignment upload error: {e}")
-
-        # Remove local file if Gemini upload failed.
         try:
-            if os.path.exists(save_path):
-                os.remove(save_path)
+            os.remove(save_path)
         except Exception:
             pass
 
         return jsonify({
+            "success": True,
+            "message": "Assignment uploaded successfully",
+            "filename": filename
+        })
+
+    except Exception as e:
+
+        print(f"Assignment upload error: {e}")
+
+        if os.path.exists(save_path):
+            try:
+                os.remove(save_path)
+            except Exception:
+                pass
+
+        return jsonify({
             "success": False,
-            "message": "Could not process the assignment. Please try again."
+            "message": "Failed to upload assignment"
         }), 500
 
-
-# ==================== ASSIGNMENT CHAT ====================
 
 @app.route('/api/assignment/chat', methods=['POST'])
 def assignment_chat():
@@ -620,7 +612,9 @@ def assignment_chat():
             "message": "Not logged in"
         }), 401
 
-    if 'assignment' not in session:
+    assignment = session.get('assignment')
+
+    if not assignment:
         return jsonify({
             "success": False,
             "message": "No assignment uploaded"
@@ -635,82 +629,34 @@ def assignment_chat():
             "message": "Message is required"
         }), 400
 
-    assignment = session['assignment']
-
     try:
-        # Reuse the file already uploaded to Gemini.
-        # No base64 encoding.
-        # No reading the file from disk.
-        # No re-uploading the file.
-        gemini_file = client.files.get(
-            name=assignment['gemini_file_name']
+
+        file_part = types.Part.from_uri(
+            file_uri=assignment['gemini_file_uri'],
+            mime_type=assignment['gemini_mime_type']
         )
 
         history = session.get('assignment_history', [])
 
-        # Keep the conversation history reasonably small.
-        # This prevents the request from becoming progressively larger
-        # after many questions.
-        MAX_HISTORY_MESSAGES = 8
+        history = history[-6:]
 
-        recent_history = history[-MAX_HISTORY_MESSAGES:]
-
-        contents = [
+        contents = history + [
             {
                 "role": "user",
                 "parts": [
-                    {
-                        "text": """
-You are Quevra AI, an academic assistant for Nigerian secondary-school
-students.
-
-The student has uploaded an assignment. Use the uploaded assignment as
-the primary source for answering the student's question.
-
-Rules:
-- Identify the relevant question from the assignment.
-- Give the correct answer first.
-- Then explain the answer clearly.
-- Match the explanation to the student's level.
-- Keep the explanation simple but academically accurate.
-- For multiple-choice questions, state the correct option and explain why.
-- For calculations, show the important steps.
-- Do not invent text that is not visible or supported by the assignment.
-- If the assignment image/document is unclear, say which part is unclear.
-- Follow Nigerian secondary-school/WAEC-style academic expectations where
-  applicable.
-"""
-                    }
-                ]
-            },
-            {
-                "role": "model",
-                "parts": [
-                    {
-                        "text": "Understood. I will use the uploaded assignment to answer the student's questions clearly and accurately."
-                    }
-                ]
-            },
-
-            *recent_history,
-
-            {
-                "role": "user",
-                "parts": [
+                    file_part,
                     {
                         "text": user_message
                     }
                 ]
-            },
-
-            # Gemini file reference.
-            gemini_file
+            }
         ]
 
-        answer = generate_with_fallback(contents)
+        answer = generate_with_fallback(
+            contents,
+            ASSIGNMENT_SYSTEM_INSTRUCTION
+        )
 
-        # Save only the conversation text.
-        # The actual assignment file is already stored with Gemini.
         history.append({
             "role": "user",
             "parts": [
@@ -729,8 +675,7 @@ Rules:
             ]
         })
 
-        # Keep session history from growing forever.
-        session['assignment_history'] = history[-MAX_HISTORY_MESSAGES:]
+        session['assignment_history'] = history[-6:]
 
         return jsonify({
             "success": True,
@@ -738,11 +683,12 @@ Rules:
         })
 
     except Exception as e:
+
         print(f"Assignment chat error: {e}")
 
         return jsonify({
             "success": False,
-            "message": "Service is currently unavailable. Please try again later."
+            "message": "Unable to process the assignment right now."
         }), 500
                 
 if __name__ == '__main__':
