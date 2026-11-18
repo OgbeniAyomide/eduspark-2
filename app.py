@@ -56,8 +56,8 @@ if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable is not set. Please check your .env file.")
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-flash_model      = "gemini-2.5-flash"
-flash_lite_model = "gemini-2.5-flash-lite"
+flash_model      = "gemini-3.5-flash"
+flash_lite_model = "gemini-3.5-flash-lite"
 
 def generate_with_fallback(contents,system_instruction=None):
     config = types.GenerateContentConfig(system_instruction=system_instruction) if system_instruction else None
